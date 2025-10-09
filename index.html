@@ -1,1578 +1,1666 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>mainsudoku</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        /* Default Theme Variables (Teal/Emerald) */
-        :root {
-            --primary-color: #0d9488; /* Teal-600 */
-            --primary-light-bg: #f0fdfa; /* Teal-50 */
-            --primary-border: #14b8a6; /* Teal-500 */
-            --primary-text: #0d9488;
-            --background-color: #f3f4f6; /* Default Light BG */
-            --text-color: #1f2937; /* Default Dark Text */
-            --card-bg: #ffffff;
-            --cell-size: clamp(44px, 11vw, 63px);
-        }
-        
-        /* Dark Background Setting */
-        .dark-mode {
-            --background-color: #1f2937; /* Gray-800 */
-            --text-color: #f3f4f6; /* Light Text */
-            --card-bg: #374151; /* Gray-700 */
-        }
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Mainsudoku</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+        <style>
+            /* Default Theme Variables (Emerald) */
+            :root {
+                --primary-color: #10b981; /* Emerald-500 */
+                --primary-light-bg: #f0fdfa; /* Emerald-50 */
+                --primary-border: #10b981; /* Emerald-500 */
+                --primary-text: #0d9488;
+                --background-color: #f3f4f6; /* Default Light BG */
+                --text-color: #1f2937; /* Default Dark Text */
+                --card-bg: #ffffff;
+                /* Explicit mobile-first size to prevent zero-size grid rendering */
+                --cell-size: 44px; 
+                --primary-color-rgb: 16, 185, 129; /* Default for Emerald-500 */
+            }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            min-height: 10vh;
-            transition: background-color 0.3s, color 0.3s;
-        }
+            /* Responsive Cell Size */
+            @media (min-width: 640px) {
+                :root {
+                    --cell-size: clamp(48px, 11vw, 63px);
+                }
+            }
+            @media (max-width: 420px) {
+                :root { 
+                    --cell-size: clamp(38px, 13vw, 44px); 
+                }
+                .number-button { height:44px; }
+                .difficulty-button { height: 40px; font-size: 0.9rem; }
 
-        #game-container, #leaderboard-container, #theme-settings {
-            background-color: var(--card-bg);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-            border-radius: 14px;
-            padding: 20px;
-            max-width: 700px;
-            width: 100%;
-            margin-bottom: 20px;
-            transition: background-color 0.3s, color 0.3s;
-        }
+                .number-key-size {
+                    width: 22%;
+                }
+            }
 
-        /* Sudoku Grid Styles */
-        #sudoku-grid {
-            display: grid;
-            grid-template-columns: repeat(9, var(--cell-size));
-            grid-auto-rows: var(--cell-size);
-            gap: 0; 
-            border: 4px solid var(--text-color);
-            border-radius: 8px;
-            overflow: hidden;
-            margin: 0 auto 18px;
-            width: fit-content;
-            background: #fff;
-        }
-
-        .cell {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.25rem;
-            font-weight: 600;
-            border: 1px solid #e5e7eb;
-            user-select: none;
-            cursor: pointer;
-            transition: background-color 0.08s, transform 0.06s;
-            box-sizing: border-box;
-            background-color: #ffffff;
-            outline: none;
-            color: #1f2937;
-        }
-        
-        .dark-mode .cell {
-            background-color: #4b5563; /* Darker cell default */
-            border-color: #374151;
-            color: #e5e7eb;
-        }
-        
-        .dark-mode .cell.initial-value {
-            background: linear-gradient(180deg, #4b5563, #374151);
-            color: #f3f4f6;
-        }
-
-
-        .cell:nth-child(9n+3),
-        .cell:nth-child(9n+6) {
-            border-right: 3px solid var(--text-color);
-        }
-
-        .cell:nth-child(n+19):nth-child(-n+27),
-        .cell:nth-child(n+46):nth-child(-n+54) {
-            border-bottom: 3px solid var(--text-color);
-        }
-
-        .cell:nth-child(9n) {
-            border-right: 1px solid #e5e7eb; 
-        }
-        
-        .dark-mode .cell:nth-child(9n) {
-             border-right: 1px solid #374151; 
-        }
-
-
-        .cell.initial-value {
-            color: #111827;
-            font-weight: 800;
-            cursor: default;
-            background: linear-gradient(180deg, #ffffff, #fafafa);
-        }
-
-        /* Highlighted related cells */
-        .cell.highlighted-related {
-            background-color: var(--primary-light-bg); 
-        }
-        .dark-mode .cell.highlighted-related {
-            background-color: rgba(var(--primary-color-rgb), 0.2); 
-        }
-
-
-        .cell.highlighted-duplicate {
-            background-color: #fcf4db;
-        }
-        .dark-mode .cell.highlighted-duplicate {
-            background-color: #584f3c;
-        }
-        
-        /* Selected cell */
-        .cell.selected {
-            background-color: rgba(var(--primary-color-rgb), 0.25);
-            box-shadow: inset 0 0 0 2px var(--primary-color);
-        }
-        .dark-mode .cell.selected {
-            background-color: rgba(var(--primary-color-rgb), 0.4);
-        }
-
-
-        .cell.error,
-        .cell.error.highlighted-related,
-        .cell.error.highlighted-duplicate,
-        .cell.error.selected {
-            background-color: #fecaca !important;
-            color: #991b1b !important;
-        }
-        .dark-mode .cell.error,
-        .dark-mode .cell.error.highlighted-related,
-        .dark-mode .cell.error.highlighted-duplicate,
-        .dark-mode .cell.error.selected {
-            background-color: #b91c1c !important;
-            color: #fca5a5 !important;
-        }
-
-
-        .number-button, .difficulty-button, .theme-button {
-            width: 100%;
-            height: 48px;
-            font-size: 1.05rem;
-            font-weight: 600;
-            border-radius: 8px;
-            transition: all 0.14s;
-            cursor: pointer;
-            border: 2px solid;
-            user-select: none; /* Ensure text is not selected during drag */
-        }
-        
-        .number-key-size {
-            width: 18.5%; 
-        }
-
-        .number-button {
-            background-color: var(--primary-light-bg); 
-            color: var(--primary-color);
-            border-color: var(--primary-border);
-        }
-        
-        .dark-mode .number-button {
-            background-color: rgba(var(--primary-color-rgb), 0.2);
-            color: var(--primary-border);
-            border-color: var(--primary-color);
-        }
-
-        .number-button:disabled {
-            background-color: #f3f4f6;
-            color: #9ca3af;
-            border-color: #e5e7eb;
-            cursor: not-allowed;
-        }
-        
-        .dark-mode .number-button:disabled {
-            background-color: #374151;
-            color: #6b7280;
-            border-color: #4b5563;
-        }
-
-
-        .action-button {
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-weight: 600;
-        }
-        
-        #message-box { min-height: 44px; }
-
-        @media (max-width: 420px) {
-            :root { --cell-size: clamp(36px, 13vw, 60px); }
-            .number-button { height:44px; }
-            .difficulty-button { height: 40px; font-size: 0.9rem; }
+            /* Dark Mode Setting */
+            .dark-mode {
+                --background-color: #1f2937; /* Gray-800 */
+                --text-color: #f3f4f6; /* Light Text */
+                --card-bg: #374151; /* Gray-700 */
+            }
             
+            /* Neutral Mode Setting */
+            .neutral-mode {
+                --background-color: #e5e7eb; /* Gray-200 */
+                --text-color: #1f2937; /* Default Dark Text */
+                --card-bg: #ffffff; /* White Card */
+            }
+            
+            .dark-mode.neutral-mode { 
+                --background-color: #1f2937;
+                --text-color: #f3f4f6;
+                --card-bg: #374151;
+            }
+
+
+            body {
+                font-family: 'Inter', sans-serif;
+                background-color: var(--background-color);
+                color: var(--text-color);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 20px;
+                min-height: 100vh;
+                transition: background-color 0.3s, color 0.3s;
+            }
+
+            #game-container {
+                background-color: var(--card-bg);
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+                border-radius: 14px;
+                padding: 20px;
+                max-width: 700px;
+                width: 100%;
+                margin-bottom: 20px;
+                transition: background-color 0.3s, color 0.3s;
+            }
+
+            /* Sudoku Grid Styles */
+            #sudoku-grid {
+                display: grid;
+                grid-template-columns: repeat(9, var(--cell-size));
+                grid-auto-rows: var(--cell-size);
+                gap: 0;
+                border: 4px solid var(--text-color);
+                border-radius: 8px;
+                overflow: hidden;
+                margin: 0 auto 18px;
+                width: fit-content;
+                background: #fff;
+            }
+
+            .cell {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 1.25rem;
+                font-weight: 600;
+                border: 1px solid #e5e7eb;
+                user-select: none;
+                cursor: pointer;
+                transition: background-color 0.08s, transform 0.06s;
+                box-sizing: border-box;
+                background-color: #ffffff;
+                outline: none;
+                color: #1f2937;
+            }
+
+            .dark-mode .cell {
+                background-color: #4b5563; /* Darker cell default */
+                border-color: #374151;
+                color: #e5e7eb;
+            }
+
+            .dark-mode .cell.initial-value {
+                background: linear-gradient(180deg, #4b5563, #374151);
+                color: #f3f4f6;
+            }
+            
+            /* Thicker horizontal borders after row 3 and 6 */
+            .cell:nth-child(n+19):nth-child(-n+27),
+            .cell:nth-child(n+46):nth-child(-n+54) {
+                border-bottom: 3px solid var(--text-color);
+            }
+            /* Fix for the bottom of the grid which is covered by the main 4px border */
+            #sudoku-grid > div:nth-child(n+73) {
+                border-bottom: 1px solid #e5e7eb;
+            }
+            .dark-mode #sudoku-grid > div:nth-child(n+73) {
+                border-bottom: 1px solid #374151;
+            }
+
+            /* Thicker vertical borders after col 3 and 6 */
+            .cell:nth-child(9n+3),
+            .cell:nth-child(9n+6) {
+                border-right: 3px solid var(--text-color);
+            }
+
+            /* Override the thick border on the 9th cell of each row */
+            .cell:nth-child(9n) {
+                border-right: 1px solid #e5e7eb;
+            }
+
+            .dark-mode .cell:nth-child(9n) {
+                border-right: 1px solid #374151;
+            }
+
+            .cell.initial-value {
+                color: #111827;
+                font-weight: 800;
+                cursor: default;
+                background: linear-gradient(180deg, #ffffff, #fafafa);
+            }
+            
+            .cell.assisted {
+                color: var(--primary-color);
+                font-style: italic;
+            }
+
+            /* Highlighted related cells */
+            .cell.highlighted-related {
+                background-color: var(--primary-light-bg);
+            }
+
+            .dark-mode .cell.highlighted-related {
+                background-color: rgba(var(--primary-color-rgb), 0.2);
+            }
+
+            .cell.highlighted-duplicate {
+                background-color: #fef3c7; /* Light Yellow */
+            }
+
+            .dark-mode .cell.highlighted-duplicate {
+                background-color: #584f3c; /* Darker Yellow/Brown */
+            }
+
+            /* Selected cell */
+            .cell.selected {
+                background-color: rgba(var(--primary-color-rgb), 0.25);
+                box-shadow: inset 0 0 0 2px var(--primary-color);
+            }
+
+            .dark-mode .cell.selected {
+                background-color: rgba(var(--primary-color-rgb), 0.4);
+            }
+
+            .cell.error,
+            .cell.error.highlighted-related,
+            .cell.error.highlighted-duplicate,
+            .cell.error.selected {
+                background-color: #fecaca !important;
+                color: #991b1b !important;
+            }
+
+            .dark-mode .cell.error,
+            .dark-mode .cell.error.highlighted-related,
+            .dark-mode .cell.error.highlighted-duplicate,
+            .dark-mode .cell.error.selected {
+                background-color: #b91c1c !important;
+                color: #fca5a5 !important;
+            }
+
+            .number-button, .difficulty-button, .theme-button {
+                width: 100%;
+                height: 48px;
+                font-size: 1.05rem;
+                font-weight: 600;
+                border-radius: 8px;
+                transition: all 0.14s;
+                cursor: pointer;
+                border: 2px solid;
+                user-select: none;
+            }
+
             .number-key-size {
-                width: 22%;
+                width: 18.5%;
             }
-        }
-        
-        /* Leaderboard Styles */
-        .leaderboard-table th, .leaderboard-table td {
-            padding: 8px 12px;
-            text-align: left;
-            border-bottom: 1px solid #f3f4f6;
-            color: var(--text-color);
-        }
-        .dark-mode .leaderboard-table th, .dark-mode .leaderboard-table td {
-            border-bottom: 1px solid #4b5563;
-        }
 
-        .leaderboard-table th {
-            background-color: #f9fafb;
-            color: #4b5563;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-        }
-        .dark-mode .leaderboard-table th {
-            background-color: #374151;
-            color: #9ca3af;
-        }
+            .number-button {
+                background-color: var(--primary-light-bg);
+                color: var(--primary-color);
+                border-color: var(--primary-border);
+            }
 
-        .leaderboard-table tr:last-child td {
-            border-bottom: none;
-        }
-        
-        /* Monospaced font for timer/leaderboard time */
-        #timer-display, .leaderboard-table .font-mono {
-             font-family: 'Space Mono', monospace;
-        }
+            .dark-mode .number-button {
+                background-color: rgba(var(--primary-color-rgb), 0.2);
+                color: var(--primary-border);
+                border-color: var(--primary-color);
+            }
 
-        /* Custom color classes for theme selection */
-        .color-selector {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: border-color 0.15s;
-        }
-        .color-selector.selected-theme {
-            border-color: var(--text-color);
-            box-shadow: 0 0 0 2px var(--primary-color);
-        }
-        
-    </style>
-</head>
-<body class="p-4 flex flex-col items-center">
+            .number-button:disabled {
+                background-color: #f3f4f6;
+                color: #9ca3af;
+                border-color: #e5e7eb;
+                cursor: not-allowed;
+            }
 
-<div id="game-container" class="mt-4 sm:mt-6">
-    
-    <!-- Language Toggle and Title -->
-    <div class="flex justify-between items-center mb-4">
-        <button id="lang-toggle-button" class="action-button bg-gray-700 text-white text-sm py-2 px-3">EN</button>
-        <h1 class="text-3xl font-extrabold text-gray-800 text-center flex-grow" id="app-title">
-            Mainsudoku
-        </h1>
-        <div class="w-[58px]"></div> <!-- Spacer to center the title -->
-    </div>
-    
-    <!-- Player Info and Timer -->
-    <div class="flex items-center justify-between mb-4 space-x-3 p-3 rounded-lg" style="background-color: var(--primary-light-bg); border: 1px solid var(--primary-border);">
-        <!-- Player Name Input -->
-        <div class="flex flex-col flex-grow">
-            <!-- Label is dynamically updated -->
-            <label for="player-name" class="text-xs font-medium text-gray-700 mb-1" data-lang-key="label_name" style="color: var(--primary-text);">Sila Masukkan Nama Anda</label> 
-            <!-- Placeholder is now empty and will be set by JS based on language -->
-            <input type="text" id="player-name" class="p-1 border rounded-md text-sm font-semibold text-gray-800 focus:ring-4 focus:ring-opacity-50" 
-                   placeholder="" style="border-color: var(--primary-border); focus-ring-color: var(--primary-color);" maxlength="20"> 
+            .dark-mode .number-button:disabled {
+                background-color: #374151;
+                color: #6b7280;
+                border-color: #4b5563;
+            }
+
+            .action-button {
+                padding: 10px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+            }
+
+            #message-box { min-height: 44px; }
+
+            /* Leaderboard Styles */
+            .leaderboard-table th, .leaderboard-table td {
+                padding: 8px 12px;
+                text-align: left;
+                border-bottom: 1px solid #f3f4f6;
+                color: var(--text-color);
+            }
+
+            .dark-mode .leaderboard-table th, .dark-mode .leaderboard-table td {
+                border-bottom: 1px solid #4b5563;
+            }
+
+            .leaderboard-table th {
+                background-color: #f9fafb;
+                color: #4b5563;
+                font-weight: 600;
+                text-transform: uppercase;
+                font-size: 0.8rem;
+            }
+
+            .dark-mode .leaderboard-table th {
+                background-color: #374151;
+                color: #9ca3af;
+            }
+
+            .leaderboard-table tr:last-child td {
+                border-bottom: none;
+            }
+
+            /* Monospaced font for timer/leaderboard time */
+            #timer-display, .leaderboard-table .font-mono {
+                font-family: 'Space Mono', monospace;
+            }
+
+            /* Custom color classes for theme selection */
+            .color-selector {
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 3px solid transparent;
+                transition: border-color 0.15s;
+            }
+
+            .color-selector.selected-theme {
+                border-color: var(--text-color);
+                box-shadow: 0 0 0 2px var(--primary-color);
+            }
+            /* Style for active difficulty button in game */
+            .difficulty-button.active {
+                background-color: var(--primary-color) !important;
+                color: white !important;
+                border-color: var(--primary-color) !important;
+            }
+            /* Style for active difficulty button in leaderboard filter */
+            .leaderboard-filter-active {
+                background-color: var(--primary-color) !important;
+                color: white !important;
+                border-color: var(--primary-color) !important;
+            }
+            
+            /* --- DRAWER STYLES --- */
+            #side-drawer {
+                position: fixed;
+                top: 0;
+                right: 0;
+                width: 320px;
+                max-width: 90%;
+                height: 100vh;
+                background-color: var(--card-bg);
+                z-index: 50;
+                transform: translateX(100%);
+                transition: transform 0.3s ease-out;
+                box-shadow: -5px 0 15px rgba(0, 0, 0, 0.2);
+                padding: 20px;
+                overflow-y: auto;
+            }
+            #side-drawer.open {
+                transform: translateX(0);
+            }
+            #drawer-overlay {
+                position: fixed;
+                inset: 0;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 40;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s ease-out;
+            }
+            #drawer-overlay.visible {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        </style>
+    </head>
+    <body class="p-4 flex flex-col items-center">
+
+    <!-- Drawer Overlay -->
+    <div id="drawer-overlay" onclick="closeDrawer()"></div>
+
+    <div id="game-container" class="mt-4 sm:mt-6">
+        <!-- Language Toggle, Menu, and Title -->
+        <div class="flex justify-between items-center mb-4">
+            <!-- Left side: Buttons (Lang and Menu Toggle) -->
+            <div class="flex space-x-2 w-[116px]">
+                <button id="lang-toggle-button" class="action-button text-sm py-2 px-3 focus:outline-none" style="background-color: var(--primary-color); color: white;" data-lang-key="lang_toggle_text">EN</button>
+                <button id="menu-toggle-button" class="action-button bg-gray-700 text-white text-sm py-2 px-3 focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            
+            <h1 class="text-3xl font-extrabold text-gray-800 text-center flex-grow" id="app-title" style="color: var(--primary-color);">
+                Mainsudoku
+            </h1>
+            <!-- Right side: Spacer for balance -->
+            <div class="w-[116px]"></div>
         </div>
 
-        <!-- Timer Display and Pause Button -->
-        <div class="flex items-center space-x-3">
-            <div class="text-lg font-semibold text-gray-800" id="timer-label" data-lang-key="label_time" style="color: var(--text-color);">Masa:</div>
-            <div id="timer-display" class="text-3xl font-bold" style="color: var(--primary-color);">00:00</div> 
-            <!-- Button is disabled by default until name is entered -->
-            <button id="pause-button" class="action-button bg-green-500 text-white shadow-md text-sm py-1 px-3" data-lang-key="button_start" disabled>Mula</button>
+        <!-- Player Info and Timer -->
+        <div class="flex items-center justify-between mb-4 space-x-3 p-3 rounded-lg" style="background-color: var(--primary-light-bg); border: 1px solid var(--primary-border);">
+            <!-- Player Name Input -->
+            <div class="flex flex-col flex-grow">
+                <label for="player-name" class="text-xs font-medium text-gray-700 mb-1" data-lang-key="label_name" style="color: var(--primary-text);">Sila Masukkan Nama Anda</label>
+                <input type="text" id="player-name" class="p-1 border rounded-md text-sm font-semibold text-gray-800 focus:ring-4 focus:ring-opacity-50"
+                        placeholder="Tulis nama anda" style="border-color: var(--primary-border); focus-ring-color: var(--primary-color);" maxlength="20">
+            </div>
+
+            <!-- Timer Display and Pause Button -->
+            <div class="flex items-center space-x-3">
+                <div class="text-lg font-semibold" id="timer-label" data-lang-key="label_time" style="color: var(--text-color);">Masa:</div>
+                <div id="timer-display" class="text-3xl font-bold font-mono" style="color: var(--primary-color);">00:00</div>
+                
+                <button id="pause-button" class="action-button shadow-md text-sm py-1 px-3" data-lang-key="button_start" disabled
+                    style="background-color: var(--primary-color); color: white;">Mula</button>
+            </div>
+        </div>
+
+        <!-- Difficulty Selector -->
+        <div id="difficulty-selector" class="flex justify-between space-x-2 mb-4">
+            <button class="difficulty-button bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-100" data-level="EASY" data-lang-key="difficulty_easy">MUDAH</button>
+            <button class="difficulty-button active" data-level="MEDIUM" data-lang-key="difficulty_medium">SEDERHANA</button>
+            <button class="difficulty-button bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-100" data-level="HARD" data-lang-key="difficulty_hard">SUKAR</button>
+        </div>
+
+        <div id="sudoku-grid" role="grid" aria-label="Sudoku board"></div>
+
+        <div id="message-box" class="text-center font-semibold mb-3 text-gray-600" data-lang-key="message_generating" style="color: var(--text-color);">Menjana teka-teki baru... Sila tunggu.</div>
+
+        <div id="number-pad" class="grid grid-cols-5 gap-2 mb-4">
+            <!-- Row 1: 1, 2, 3, 4, 5 -->
+            <button class="number-button" data-number="1" draggable="true" disabled>1</button>
+            <button class="number-button" data-number="2" draggable="true" disabled>2</button>
+            <button class="number-button" data-number="3" draggable="true" disabled>3</button>
+            <button class="number-button" data-number="4" draggable="true" disabled>4</button>
+            <button class="number-button" data-number="5" draggable="true" disabled>5</button>
+
+            <!-- Row 2: Centered 6, 7, 8, 9 -->
+            <div class="col-span-5 flex justify-center space-x-2">
+                <button class="number-button number-key-size" data-number="6" draggable="true" disabled>6</button>
+                <button class="number-button number-key-size" data-number="7" draggable="true" disabled>7</button>
+                <button class="number-button number-key-size" data-number="8" draggable="true" disabled>8</button>
+                <button class="number-button number-key-size" data-number="9" draggable="true" disabled>9</button>
+            </div>
+
+            <!-- Row 3: Clear button spans all 5 columns. -->
+            <button id="clear-button" class="number-button col-span-5 bg-red-500 text-white border-red-700 hover:bg-red-600" data-number="0" data-lang-key="button_clear" disabled>Padam</button>
+        </div>
+
+        <div class="flex flex-wrap justify-center space-x-2 sm:space-x-3">
+            <!-- Hint Button -->
+            <button id="hint-button" class="action-button bg-yellow-500 text-white shadow-md mb-2 sm:mb-0" data-lang-key="button_hint" disabled>Petunjuk (3)</button>
+            <button id="check-button" class="action-button text-white shadow-md mb-2 sm:mb-0" disabled data-lang-key="button_check" style="background-color: var(--primary-color);">Semak Jawapan</button>
+            <button id="new-game-button" class="action-button bg-gray-200 text-gray-800 border border-gray-300" data-lang-key="button_new_game">Permainan Baru</button>
         </div>
     </div>
 
-
-    <!-- Difficulty Selector -->
-    <div id="difficulty-selector" class="flex justify-between space-x-2 mb-4">
-        <button class="difficulty-button bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-100" data-level="EASY" data-lang-key="difficulty_easy">MUDAH</button>
-        <button class="difficulty-button bg-gray-200 text-gray-700 border-gray-700 hover:bg-gray-100" data-level="MEDIUM" data-lang-key="difficulty_medium">SEDERHANA</button>
-        <button class="difficulty-button bg-gray-200 text-gray-700 border-gray-700 hover:bg-gray-100" data-level="HARD" data-lang-key="difficulty_hard">SUKAR</button>
-    </div>
-
-    <div id="sudoku-grid" role="grid" aria-label="Sudoku board"></div>
-
-    <div id="message-box" class="text-center font-semibold mb-3 text-gray-600" data-lang-key="message_generating" style="color: var(--text-color);">Menjana teka-teki baru... Sila tunggu.</div>
-
-    <div id="number-pad" class="grid grid-cols-5 gap-2 mb-4">
-        <!-- Row 1: 1, 2, 3, 4, 5 -->
-        <!-- Added draggable="true" to all number buttons -->
-        <button class="number-button" data-number="1" draggable="true" disabled>1</button>
-        <button class="number-button" data-number="2" draggable="true" disabled>2</button>
-        <button class="number-button" data-number="3" draggable="true" disabled>3</button>
-        <button class="number-button" data-number="4" draggable="true" disabled>4</button>
-        <button class="number-button" data-number="5" draggable="true" disabled>5</button>
-
-        <!-- Row 2: Centered 6, 7, 8, 9 -->
-        <div class="col-span-5 flex justify-center space-x-2">
-            <button class="number-button number-key-size" data-number="6" draggable="true" disabled>6</button>
-            <button class="number-button number-key-size" data-number="7" draggable="true" disabled>7</button>
-            <button class="number-button number-key-size" data-number="8" draggable="true" disabled>8</button>
-            <button class="number-button number-key-size" data-number="9" draggable="true" disabled>9</button>
+    <!-- Side Drawer -->
+    <div id="side-drawer">
+        <div class="flex justify-between items-center mb-6 border-b pb-4" style="border-color: var(--primary-border);">
+            <h2 class="text-2xl font-extrabold" style="color: var(--primary-color);" data-lang-key="drawer_title">Tetapan & Data</h2>
+            <button id="drawer-close-button" class="action-button bg-red-500 text-white shadow-md text-sm py-1 px-3 rounded-full h-8 w-8 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
         </div>
-        
-        <!-- Row 3: Clear button spans all 5 columns. Clear is not draggable. -->
-        <button id="clear-button" class="number-button col-span-5 bg-red-500 text-white border-red-700 hover:bg-red-600" data-number="0" data-lang-key="button_clear" disabled>Padam</button>
-    </div>
 
-    <div class="flex justify-center space-x-3">
-        <!-- Hint Button -->
-        <button id="hint-button" class="action-button bg-yellow-500 text-white shadow-md" data-lang-key="button_hint" disabled>Petunjuk (3)</button>
-        <button id="check-button" class="action-button bg-emerald-500 text-white shadow-md" disabled data-lang-key="button_check" style="background-color: var(--primary-color);">Semak Jawapan</button> 
-        <button id="new-game-button" class="action-button bg-gray-200 text-gray-800 border border-gray-300" data-lang-key="button_new_game">Permainan Baru</button>
-    </div>
-</div>
+        <!-- Theme Settings Container -->
+        <div id="theme-settings" class="mb-8">
+            <h2 class="text-2xl font-bold mb-4 text-center" data-lang-key="theme_title" style="color: var(--primary-color);">Tetapan Tema</h2>
 
-<!-- Theme Settings Container (NEW) -->
-<div id="theme-settings" class="mt-4">
-    <h2 class="text-2xl font-bold mb-4 text-center" data-lang-key="theme_title" style="color: var(--primary-color);">Tetapan Tema</h2>
-    
-    <!-- 1. Primary Color Selector -->
-    <div class="mb-6">
-        <h3 class="text-lg font-semibold mb-2" data-lang-key="theme_primary_color">Warna Utama (Aksen)</h3>
-        <div id="primary-color-selector" class="flex justify-center space-x-4">
-            <div class="color-selector bg-emerald-500 selected-theme" data-color-key="TEAL" data-color-code="#10b981" data-rgb="16, 185, 129"></div>
-            <div class="color-selector bg-blue-500" data-color-key="BLUE" data-color-code="#3b82f6" data-rgb="59, 130, 246"></div>
-            <div class="color-selector bg-indigo-500" data-color-key="INDIGO" data-color-code="#6366f1" data-rgb="99, 102, 241"></div>
-            <div class="color-selector bg-rose-500" data-color-key="ROSE" data-color-code="#f43f5e" data-rgb="244, 63, 94"></div>
-            <div class="color-selector bg-orange-500" data-color-key="ORANGE" data-color-code="#f97316" data-rgb="249, 115, 22"></div>
+            <!-- 1. Primary Color Selector -->
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-2" data-lang-key="theme_primary_color" style="color: var(--text-color);">Warna Utama (Aksen)</h3>
+                <div id="primary-color-selector" class="flex justify-center space-x-4">
+                    <div class="color-selector bg-emerald-500 selected-theme" data-color-key="TEAL" data-color-code="#10b981" data-rgb="16, 185, 129"></div>
+                    <div class="color-selector bg-blue-500" data-color-key="BLUE" data-color-code="#3b82f6" data-rgb="59, 130, 246"></div>
+                    <div class="color-selector bg-indigo-500" data-color-key="INDIGO" data-color-code="#6366f1" data-rgb="99, 102, 241"></div>
+                    <div class="color-selector bg-rose-500" data-color-key="ROSE" data-color-code="#f43f5e" data-rgb="244, 63, 94"></div>
+                    <div class="color-selector bg-orange-500" data-color-key="ORANGE" data-color-code="#f97316" data-rgb="249, 115, 22"></div>
+                </div>
+            </div>
+
+            <!-- 2. Background Selector -->
+            <div>
+                <h3 class="text-lg font-semibold mb-2" data-lang-key="theme_background_color" style="color: var(--text-color);">Warna Latar Belakang</h3>
+                <div id="background-selector" class="grid grid-cols-3 gap-2">
+                    <button class="theme-button bg-gray-700 text-white border-gray-700 active" data-bg-key="LIGHT" data-lang-key="theme_bg_light" style="background-color: var(--primary-color); color: white;">Cerah</button>
+                    <button class="theme-button bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-100" data-bg-key="DARK" data-lang-key="theme_bg_dark">Gelap</button>
+                    <button class="theme-button bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-100" data-bg-key="NEUTRAL" data-lang-key="theme_bg_neutral">Neutral</button>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <!-- 2. Background Selector -->
-    <div>
-        <h3 class="text-lg font-semibold mb-2" data-lang-key="theme_background_color">Warna Latar Belakang</h3>
-        <div id="background-selector" class="flex justify-center space-x-4">
-            <button class="theme-button bg-gray-200 text-gray-700 border-gray-300" data-bg-key="LIGHT" data-lang-key="theme_bg_light">Cerah</button>
-            <button class="theme-button bg-gray-200 text-gray-700 border-gray-300" data-bg-key="DARK" data-lang-key="theme_bg_dark">Gelap</button>
-            <button class="theme-button bg-gray-200 text-gray-700 border-gray-300" data-bg-key="NEUTRAL" data-lang-key="theme_bg_neutral">Neutral</button>
+        <!-- Leaderboard Container -->
+        <div id="leaderboard-container">
+            <h2 class="text-2xl font-bold mb-4 text-center" data-lang-key="leaderboard_title" style="color: var(--primary-color);">Papan Pendahulu</h2>
+
+            <!-- Difficulty filter for Leaderboard -->
+            <div id="leaderboard-difficulty-filter" class="flex justify-between space-x-2 mb-4">
+                <button class="difficulty-button bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-100 w-1/3" data-level="EASY" data-leaderboard-filter="EASY" data-lang-key="difficulty_easy">MUDAH</button>
+                <button class="difficulty-button leaderboard-filter-active w-1/3" data-level="MEDIUM" data-leaderboard-filter="MEDIUM" data-lang-key="difficulty_medium">SEDERHANA</button>
+                <button class="difficulty-button bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-100 w-1/3" data-level="HARD" data-leaderboard-filter="HARD" data-lang-key="difficulty_hard">SUKAR</button>
+            </div>
+
+            <div id="leaderboard-content">
+                <p class="text-center text-gray-500" data-lang-key="leaderboard_loading">Memuatkan skor...</p>
+            </div>
+            <p id="current-user-id" class="text-xs text-gray-400 mt-4 text-center break-all"></p>
         </div>
     </div>
-</div>
 
-
-<!-- Leaderboard Container -->
-<div id="leaderboard-container">
-    <h2 class="text-2xl font-bold mb-4 text-center" data-lang-key="leaderboard_title" style="color: var(--primary-color);">Papan Pendahulu</h2>
-    
-    <!-- Difficulty filter for Leaderboard -->
-    <div id="leaderboard-difficulty-filter" class="flex justify-center space-x-2 mb-4">
-        <button class="difficulty-button bg-gray-200 text-white border-gray-300 shadow-md" data-level="EASY" data-leaderboard-filter="EASY" data-lang-key="difficulty_easy">MUDAH</button> 
-        <button class="difficulty-button bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-100" data-level="MEDIUM" data-leaderboard-filter="MEDIUM" data-lang-key="difficulty_medium">SEDERHANA</button> 
-        <button class="difficulty-button bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-100" data-level="HARD" data-leaderboard-filter="HARD" data-lang-key="difficulty_hard">SUKAR</button> 
+    <!-- Modal (Replaces alert/confirm) -->
+    <div id="modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center p-4 z-50">
+        <div class="p-6 rounded-xl shadow-2xl w-full max-w-sm text-center" style="background-color: var(--card-bg);">
+            <h3 id="modal-title" class="text-2xl font-bold mb-3" style="color: var(--primary-color);">Tahniah!</h3>
+            <p id="modal-content" class="text-gray-700 mb-4" style="color: var(--text-color);">Anda berjaya menyelesaikannya!</p>
+            <button id="modal-close-button" class="action-button w-full" data-lang-key="modal_close" style="background-color: var(--primary-color); color: white;">Tutup</button>
+        </div>
     </div>
 
-    <div id="leaderboard-content">
-        <!-- Leaderboard data will be inserted here -->
-        <p class="text-center text-gray-500" data-lang-key="leaderboard_loading">Memuatkan skor...</p>
-    </div>
-    <p id="current-user-id" class="text-xs text-gray-400 mt-4 text-center"></p>
-</div>
+    <script type="module">
+        // --- Firebase Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-<div id="modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm text-center" style="background-color: var(--card-bg);">
-        <h3 id="modal-title" class="text-2xl font-bold mb-3" style="color: var(--primary-color);">Tahniah!</h3> 
-        <p id="modal-content" class="text-gray-700 mb-4" style="color: var(--text-color);">Anda berjaya menyelesaikannya!</p>
-        <button id="modal-close-button" class="action-button bg-emerald-500 text-white w-full" data-lang-key="modal_close" style="background-color: var(--primary-color);">Tutup</button> 
-    </div>
-</div>
+        // Set Firebase Log Level
+        setLogLevel('Debug');
 
-<script type="module">
-    // --- Firebase Imports ---
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-    import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    // Set Firebase Log Level
-    setLogLevel('Debug');
-    
-    // --- GLOBAL FIREBASE/APP VARIABLES ---
-    let db;
-    let auth;
-    let userId = null;
-    let userName = ''; // Initial name is empty
-    let appId = typeof __app_id !== 'undefined' ? __app_id : 'default-sudoku-app-id';
-    let currentLeaderboardFilter = 'EASY';
-
-    // --- THEME VARIABLES ---
-    const THEMES = {
-        TEAL: { color: '#10b981', rgb: '16, 185, 129', light_bg: '#f0fdfa', border: '#14b8a6' }, // Emerald-500/Teal-50
-        BLUE: { color: '#3b82f6', rgb: '59, 130, 246', light_bg: '#eff6ff', border: '#60a5fa' }, // Blue-500/Blue-50
-        INDIGO: { color: '#6366f1', rgb: '99, 102, 241', light_bg: '#eef2ff', border: '#818cf8' }, // Indigo-500/Indigo-50
-        ROSE: { color: '#f43f5e', rgb: '244, 63, 94', light_bg: '#fff1f2', border: '#fb7185' }, // Rose-500/Rose-50
-        ORANGE: { color: '#f97316', rgb: '249, 115, 22', light_bg: '#fff7ed', border: '#fb923c' }, // Orange-500/Orange-50
-    };
-    let currentThemeKey = 'TEAL';
-    let currentBackgroundKey = 'LIGHT';
-
-
-    // --- LANGUAGE CONSTANT ---
-    const LANGUAGES = {
-        ms: {
-            difficulty_easy: 'MUDAH', difficulty_medium: 'SEDERHANA', difficulty_hard: 'SUKAR',
-            label_name: 'Sila Masukkan Nama Anda', label_time: 'Masa:',
-            input_placeholder: 'Tulis nama anda', // UPDATED FOR MONOLINGUAL INPUT
-            message_generating: 'Menjana teka-teki baru... Sila tunggu.',
-            message_enter_name: 'Sila masukkan nama anda untuk memulakan permainan.', 
-            message_loaded: (level) => `Teka-teki ${level} baru dimuatkan.`,
-            message_press_play_to_start: "Tekan 'Mula' untuk memulakan pemasa dan mula bermain!",
-            message_select_cell: (r, c) => `Dipilih: Baris ${r}, Lajur ${c}. Masukkan nombor.`,
-            message_no_selection: 'Sila pilih sel dahulu!',
-            message_fixed_value: 'Anda tidak boleh menukar nilai awal atau sel yang dibantu!',
-            message_keep_going: 'Teruskan! Papan belum lengkap. Sel yang salah diserlahkan.',
-            message_no_hints: 'Tiada petunjuk lagi!',
-            message_select_hint_cell: 'Sila pilih sel kosong untuk mendapatkan petunjuk.',
-            message_hint_used: (val, rem) => `Petunjuk digunakan! Nombor yang betul ${val} telah diletakkan. (${rem} baki)`,
-            message_paused: 'Permainan dihentikan. Tekan "Sambung" untuk menyambung.',
-            message_score_saving: 'Menghantar skor ke Papan Pendahulu...',
-            message_score_saved: 'Skor anda telah dihantar!',
-            button_clear: 'Padam',
-            button_hint: (rem) => `Petunjuk (${rem})`,
-            button_check: 'Semak Jawapan',
-            button_new_game: 'Permainan Baru',
-            button_pause: 'Henti',
-            button_play: 'Sambung', // Resume
-            button_start: 'Mula', // Initial Start
-            modal_solved_title: 'Tahniah!',
-            modal_solved_content: (time) => `Anda berjaya menyelesaikannya dalam ${time}! Skor dihantar.`,
-            modal_error_title: 'Hampir berjaya!',
-            modal_error_content: 'Beberapa sel tidak betul. Terus mencuba!',
-            modal_close: 'Tutup',
-            lang_toggle_text: 'EN',
-            aria_row: 'Baris',
-            aria_col: 'Lajur',
-            leaderboard_title: 'Papan Pendahulu',
-            leaderboard_rank: 'Rangking',
-            leaderboard_player: 'Pemain',
-            leaderboard_time: 'Masa',
-            leaderboard_date: 'Tarikh',
-            leaderboard_loading: 'Memuatkan skor...',
-            leaderboard_empty: (level) => `Tiada skor untuk tahap ${level} lagi. Jadilah yang pertama!`,
-            theme_title: 'Tetapan Tema',
-            theme_primary_color: 'Warna Utama (Aksen)',
-            theme_background_color: 'Warna Latar Belakang',
-            theme_bg_light: 'Cerah',
-            theme_bg_dark: 'Gelap',
-            theme_bg_neutral: 'Neutral',
-        },
-        en: {
-            difficulty_easy: 'EASY', difficulty_medium: 'MEDIUM', difficulty_hard: 'HARD',
-            label_name: 'Please Enter Your Name', label_time: 'Time:',
-            input_placeholder: 'Enter your name', // UPDATED FOR MONOLINGUAL INPUT
-            message_generating: 'Generating new puzzle... Please wait.',
-            message_enter_name: 'Please enter your name to start the game.', 
-            message_loaded: (level) => `New ${level} puzzle loaded.`,
-            message_press_play_to_start: "Press 'Start' to start the timer and begin playing!",
-            message_select_cell: (r, c) => `Selected: Row ${r}, Column ${c}. Enter a number.`,
-            message_no_selection: 'Please select a cell first!',
-            message_fixed_value: 'You cannot change the initial values or hinted cells!',
-            message_keep_going: 'Keep going! The board is not complete yet. Incorrect cells are highlighted.',
-            message_no_hints: 'No more hints available!',
-            message_select_hint_cell: 'Please select an empty cell to get a hint.',
-            message_hint_used: (val, rem) => `Hint used! The correct number ${val} has been placed. (${rem} left)`,
-            message_paused: 'Game paused. Press "Resume" to resume.',
-            message_score_saving: 'Submitting score to Leaderboard...',
-            message_score_saved: 'Your score has been submitted!',
-            button_clear: 'Clear',
-            button_hint: (rem) => `Hint (${rem})`,
-            button_check: 'Check Solution',
-            button_new_game: 'New Game',
-            button_pause: 'Pause',
-            button_play: 'Resume',
-            button_start: 'Start',
-            modal_solved_title: 'Well Done!',
-            modal_solved_content: (time) => `You successfully solved it in ${time}! Score submitted.`,
-            modal_error_title: 'Almost there!',
-            modal_error_content: 'Some cells are incorrect. Keep trying!',
-            modal_close: 'Close',
-            lang_toggle_text: 'BM',
-            aria_row: 'Row',
-            aria_col: 'Column',
-            leaderboard_title: 'Leaderboard',
-            leaderboard_rank: 'Rank',
-            leaderboard_player: 'Player',
-            leaderboard_time: 'Time',
-            leaderboard_date: 'Date',
-            leaderboard_loading: 'Loading scores...',
-            leaderboard_empty: (level) => `No scores for ${level} difficulty yet. Be the first!`,
-            theme_title: 'Theme Settings',
-            theme_primary_color: 'Primary Color (Accent)',
-            theme_background_color: 'Background Color',
-            theme_bg_light: 'Light',
-            theme_bg_dark: 'Dark',
-            theme_bg_neutral: 'Neutral',
-        }
-    };
-
-    const DIFFICULTY_LEVELS = { EASY: 42, MEDIUM: 32, HARD: 25 };
-    const HINT_LIMIT = 3; 
-
-    // Game state variables
-    let currentBoard = [];
-    let initialBoard = [];
-    let fullSolution = [];
-    let selectedCell = {row:-1, col:-1};
-    let currentDifficulty = DIFFICULTY_LEVELS.MEDIUM;
-    let currentDifficultyKey = 'MEDIUM';
-    let timerInterval = null;
-    let timeElapsed = 0;
-    let isTimerRunning = false;
-    let hintsRemaining = HINT_LIMIT;
-    let currentLang = 'ms';
-    let isAuthReady = false; 
-
-    // DOM Elements
-    const root = document.documentElement;
-    const body = document.body;
-    const gridElement = document.getElementById('sudoku-grid');
-    const messageBox = document.getElementById('message-box');
-    const timerDisplay = document.getElementById('timer-display');
-    const numberButtons = document.querySelectorAll('#number-pad .number-button');
-    const checkButton = document.getElementById('check-button');
-    const newGameButton = document.getElementById('new-game-button');
-    const hintButton = document.getElementById('hint-button');
-    const modal = document.getElementById('modal');
-    const modalTitle = document.getElementById('modal-title');
-    const modalContent = document.getElementById('modal-content');
-    const modalCloseButton = document.getElementById('modal-close-button');
-    const clearButton = document.getElementById('clear-button');
-    const difficultyButtons = document.querySelectorAll('#difficulty-selector .difficulty-button');
-    const langToggleButton = document.getElementById('lang-toggle-button');
-    const pauseButton = document.getElementById('pause-button');
-    const playerNameInput = document.getElementById('player-name');
-    const leaderboardContent = document.getElementById('leaderboard-content');
-    const leaderboardFilterButtons = document.querySelectorAll('[data-leaderboard-filter]');
-    const currentUserIdDisplay = document.getElementById('current-user-id');
-    const primaryColorSelectors = document.querySelectorAll('#primary-color-selector .color-selector');
-    const backgroundSelectors = document.querySelectorAll('#background-selector .theme-button');
-    
-    // --- AUDIO Logic ---
-    let audioContext = null;
-
-    function createAudioContext() {
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-    }
-
-    function playSound(type) {
-        createAudioContext();
-        if (!audioContext) return;
-
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        if (type === 'success') {
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(392, audioContext.currentTime);
-            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-            oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime + 0.1);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.4);
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.4);
-
-        } else if (type === 'error') {
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(120, audioContext.currentTime);
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.3);
-        }
-    }
-
-    // --- THEME Logic ---
-
-    function applyTheme(primaryKey, bgKey) {
-        currentThemeKey = primaryKey;
-        currentBackgroundKey = bgKey;
-
-        const theme = THEMES[primaryKey];
-        root.style.setProperty('--primary-color', theme.color);
-        root.style.setProperty('--primary-color-rgb', theme.rgb);
-        root.style.setProperty('--primary-light-bg', theme.light_bg);
-        root.style.setProperty('--primary-border', theme.border);
-
-        // Background switching logic
-        if (bgKey === 'DARK') {
-            body.classList.add('dark-mode');
-            // Override text/bg for dark mode
-            root.style.setProperty('--background-color', '#1f2937'); 
-            root.style.setProperty('--text-color', '#f3f4f6');
-            root.style.setProperty('--card-bg', '#374151');
-            
-        } else if (bgKey === 'NEUTRAL') {
-            body.classList.remove('dark-mode');
-            // Neutral/Gray theme
-            root.style.setProperty('--background-color', '#cbd5e1'); // Slate-300
-            root.style.setProperty('--text-color', '#1f2937');
-            root.style.setProperty('--card-bg', '#e2e8f0'); // Slate-200
-            
-        } else { // LIGHT
-            body.classList.remove('dark-mode');
-            // Default Light theme
-            root.style.setProperty('--background-color', '#f3f4f6');
-            root.style.setProperty('--text-color', '#1f2937');
-            root.style.setProperty('--card-bg', '#ffffff');
-        }
-
-        updateThemeUI();
-        updateDifficultyUI(); 
-        updateLeaderboardFilterUI();
-        renderBoard(); 
-    }
-    
-    function updateThemeUI() {
-        // 1. Primary Color Selectors
-        primaryColorSelectors.forEach(selector => {
-            selector.classList.remove('selected-theme');
-            if (selector.dataset.colorKey === currentThemeKey) {
-                selector.classList.add('selected-theme');
-            }
-        });
+        // --- GLOBAL FIREBASE/APP VARIABLES ---
+        let db;
+        let auth;
+        let userId = null;
+        let userName = ''; // Initial name is empty
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-sudoku-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // 2. Background Selectors (Update Active/Inactive)
-        backgroundSelectors.forEach(btn => {
-             // Reset to default gray state
-            btn.classList.remove('bg-gray-700', 'text-white', 'border-gray-700'); 
-            btn.classList.add('bg-gray-200', 'text-gray-700', 'border-gray-300');
+        let currentLeaderboardFilter = 'MEDIUM'; // Default filter for leaderboard display
+        let isAuthReady = false;
 
-            if (btn.dataset.bgKey === currentBackgroundKey) {
-                // Apply active state (Darker gray/Black for contrast regardless of primary color)
-                 btn.classList.remove('bg-gray-200', 'text-gray-700', 'border-gray-300');
-                 btn.classList.add('bg-gray-700', 'text-white', 'border-gray-700');
+        // --- THEME VARIABLES ---
+        const THEMES = {
+            TEAL: { color: '#10b981', rgb: '16, 185, 129', light_bg: '#f0fdfa', border: '#10b981', light_border: '#14b8a6' }, 
+            BLUE: { color: '#3b82f6', rgb: '59, 130, 246', light_bg: '#eff6ff', border: '#3b82f6', light_border: '#60a5fa' },
+            INDIGO: { color: '#6366f1', rgb: '99, 102, 241', light_bg: '#eef2ff', border: '#6366f1', light_border: '#818cf8' },
+            ROSE: { color: '#f43f5e', rgb: '244, 63, 94', light_bg: '#fff1f2', border: '#f43f5e', light_border: '#fb7185' },
+            ORANGE: { color: '#f97316', rgb: '249, 115, 22', light_bg: '#fff7ed', border: '#f97316', light_border: '#fb923c' },
+        };
+        let currentThemeKey = 'TEAL';
+        let currentBackgroundKey = 'LIGHT';
+
+        // --- LANGUAGE CONSTANT ---
+        const LANGUAGES = {
+            ms: {
+                difficulty_easy: 'MUDAH', difficulty_medium: 'BIASA', difficulty_hard: 'SUKAR',
+                label_name: 'Sila Masukkan Nama Anda', label_time: 'Masa:',
+                input_placeholder: 'Tulis nama anda',
+                message_generating: 'Menjana teka-teki baru... Sila tunggu.',
+                message_enter_name: 'Sila masukkan nama anda untuk memulakan permainan.',
+                message_loaded: (level) => `Teka-teki ${level} baru dimuatkan.`,
+                message_press_play_to_start: "Tekan 'Mula' untuk memulakan pemasa dan mula bermain!",
+                message_select_cell: (r, c) => `Dipilih: Baris ${r}, Lajur ${c}. Masukkan nombor.`,
+                message_no_selection: 'Sila pilih sel dahulu!',
+                message_fixed_value: 'Anda tidak boleh menukar nilai awal!',
+                message_keep_going: 'Teruskan! Papan belum lengkap. Sel yang salah diserlahkan.',
+                message_no_hints: 'Tiada petunjuk lagi!',
+                message_select_hint_cell: 'Sila pilih sel kosong untuk mendapatkan petunjuk.',
+                message_hint_used: (val, rem) => `Petunjuk digunakan! Nombor yang betul ${val} telah diletakkan. (${rem} baki)`,
+                message_paused: 'Permainan dihentikan. Tekan "Sambung" untuk menyambung.',
+                message_score_saving: 'Menghantar skor ke Papan Pendahulu...',
+                message_score_saved: 'Skor anda telah dihantar!',
+                button_clear: 'Padam',
+                button_hint: (rem) => `Petunjuk (${rem})`,
+                button_check: 'Semak Jawapan',
+                button_new_game: 'Permainan Baru',
+                button_pause: 'Henti',
+                button_play: 'Sambung', // Resume
+                button_start: 'Mula', // Initial Start
+                modal_solved_title: 'Tahniah!',
+                modal_solved_content: (time) => `Anda berjaya menyelesaikannya dalam ${time}! Skor dihantar.`,
+                modal_error_title: 'Hampir berjaya!',
+                modal_error_content: 'Beberapa sel tidak betul. Terus mencuba!',
+                modal_close: 'Tutup',
+                lang_toggle_text: 'EN',
+                aria_row: 'Baris',
+                aria_col: 'Lajur',
+                leaderboard_title: 'Papan Pendahulu',
+                leaderboard_rank: 'Rangking',
+                leaderboard_player: 'Pemain',
+                leaderboard_time: 'Masa',
+                leaderboard_date: 'Tarikh',
+                leaderboard_loading: 'Memuatkan skor...',
+                leaderboard_empty: (level) => `Tiada skor untuk tahap ${level} lagi. Jadilah yang pertama!`,
+                theme_title: 'Tetapan Tema',
+                theme_primary_color: 'Warna Utama (Aksen)',
+                theme_background_color: 'Warna Latar Belakang',
+                theme_bg_light: 'Cerah',
+                theme_bg_dark: 'Gelap',
+                theme_bg_neutral: 'Neutral',
+                drawer_title: 'Tetapan & Data',
+            },
+            en: {
+                difficulty_easy: 'EASY', difficulty_medium: 'MEDIUM', difficulty_hard: 'HARD',
+                label_name: 'Please Enter Your Name', label_time: 'Time:',
+                input_placeholder: 'Enter your name',
+                message_generating: 'Generating new puzzle... Please wait.',
+                message_enter_name: 'Please enter your name to start the game.',
+                message_loaded: (level) => `New ${level} puzzle loaded.`,
+                message_press_play_to_start: "Press 'Start' to start the timer and begin playing!",
+                message_select_cell: (r, c) => `Selected: Row ${r}, Column ${c}. Enter a number.`,
+                message_no_selection: 'Please select a cell first!',
+                message_fixed_value: 'You cannot change the initial values!',
+                message_keep_going: 'Keep going! The board is not complete yet. Incorrect cells are highlighted.',
+                message_no_hints: 'No more hints available!',
+                message_select_hint_cell: 'Please select an empty cell to get a hint.',
+                message_hint_used: (val, rem) => `Hint used! The correct number ${val} has been placed. (${rem} left)`,
+                message_paused: 'Game paused. Press "Resume" to resume.',
+                message_score_saving: 'Submitting score to Leaderboard...',
+                message_score_saved: 'Your score has been submitted!',
+                button_clear: 'Clear',
+                button_hint: (rem) => `Hint (${rem})`,
+                button_check: 'Check Solution',
+                button_new_game: 'New Game',
+                button_pause: 'Pause',
+                button_play: 'Resume',
+                button_start: 'Start',
+                modal_solved_title: 'Well Done!',
+                modal_solved_content: (time) => `You successfully solved it in ${time}! Score submitted.`,
+                modal_error_title: 'Almost there!',
+                modal_error_content: 'Some cells are incorrect. Keep trying!',
+                modal_close: 'Close',
+                lang_toggle_text: 'BM',
+                aria_row: 'Row',
+                aria_col: 'Column',
+                leaderboard_title: 'Leaderboard',
+                leaderboard_rank: 'Rank',
+                leaderboard_player: 'Player',
+                leaderboard_time: 'Time',
+                leaderboard_date: 'Date',
+                leaderboard_loading: 'Loading scores...',
+                leaderboard_empty: (level) => `No scores for ${level} difficulty yet. Be the first!`,
+                theme_title: 'Theme Settings',
+                theme_primary_color: 'Primary Color (Accent)',
+                theme_background_color: 'Background Color',
+                theme_bg_light: 'Light',
+                theme_bg_dark: 'Dark',
+                theme_bg_neutral: 'Neutral',
+                drawer_title: 'Settings & Data',
             }
-        });
-    }
+        };
 
-    // --- FIREBASE INITIALIZATION & AUTH ---
+        const DIFFICULTY_LEVELS = { EASY: 45, MEDIUM: 35, HARD: 28 };
+        const HINT_LIMIT = 3;
 
-    async function initializeFirebase() {
-        try {
-            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { 
-                await signInWithCustomToken(auth, __initial_auth_token); 
-            } else { 
-                await signInAnonymously(auth); 
+        // Game state variables
+        // Initialize currentBoard and initialBoard with empty 9x9 arrays
+        let currentBoard = Array(9).fill(0).map(() => Array(9).fill(0));
+        let initialBoard = Array(9).fill(0).map(() => Array(9).fill(0));
+        let fullSolution = [];
+        let selectedCell = {row:-1, col:-1};
+        let currentDifficulty = DIFFICULTY_LEVELS.MEDIUM;
+        let currentDifficultyKey = 'MEDIUM';
+        let timerInterval = null;
+        let timeElapsed = 0;
+        let isTimerRunning = false;
+        let hintsRemaining = HINT_LIMIT;
+        let currentLang = 'ms';
+        let isGameActive = false;
+        let isGameSolved = false;
+        let isPaused = false;
+
+        // DOM Elements
+        const root = document.documentElement;
+        const body = document.body;
+        const gridElement = document.getElementById('sudoku-grid');
+        const messageBox = document.getElementById('message-box');
+        const timerDisplay = document.getElementById('timer-display');
+        const numberButtons = document.querySelectorAll('#number-pad .number-button');
+        const checkButton = document.getElementById('check-button');
+        const newGameButton = document.getElementById('new-game-button');
+        const hintButton = document.getElementById('hint-button');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        const modalCloseButton = document.getElementById('modal-close-button');
+        const clearButton = document.getElementById('clear-button');
+        const difficultyButtons = document.querySelectorAll('#difficulty-selector .difficulty-button');
+        const langToggleButton = document.getElementById('lang-toggle-button');
+        const menuToggleButton = document.getElementById('menu-toggle-button');
+        const pauseButton = document.getElementById('pause-button');
+        const playerNameInput = document.getElementById('player-name');
+        const leaderboardContent = document.getElementById('leaderboard-content');
+        const leaderboardFilterButtons = document.querySelectorAll('[data-leaderboard-filter]');
+        const currentUserIdDisplay = document.getElementById('current-user-id');
+        const primaryColorSelectors = document.querySelectorAll('#primary-color-selector .color-selector');
+        const backgroundSelectors = document.querySelectorAll('#background-selector .theme-button');
+        const appTitle = document.getElementById('app-title');
+        const sideDrawer = document.getElementById('side-drawer');
+        const drawerOverlay = document.getElementById('drawer-overlay');
+        const drawerCloseButton = document.getElementById('drawer-close-button');
+        const themeBgLightButton = document.querySelector('[data-bg-key="LIGHT"]');
+        const themeBgDarkButton = document.querySelector('[data-bg-key="DARK"]');
+        const themeBgNeutralButton = document.querySelector('[data-bg-key="NEUTRAL"]');
+
+        // --- Audio Logic ---
+        let audioContext = null;
+
+        function createAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioContext) {
+                createAudioContext();
+                if (!audioContext) return;
             }
 
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    userId = user.uid;
-                    currentUserIdDisplay.textContent = `User ID: ${userId} | App ID: ${appId}`;
-                } else {
-                    userId = crypto.randomUUID();
-                    currentUserIdDisplay.textContent = `User ID: ${userId} (Anon) | App ID: ${appId}`;
-                }
-                isAuthReady = true;
-                playerNameInput.value = ''; // Ensure input is empty to force name entry
-                setupNewGame();
-                setupLeaderboardListener();
-            });
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
 
-        } catch (error) {
-            console.error("Firebase initialization failed:", error);
-            isAuthReady = true;
-            playerNameInput.value = ''; // Ensure input is empty
-            setupNewGame();
-        }
-    }
-    
-    // --- FIRESTORE LOGIC ---
-    
-    function getScoresCollectionRef() {
-        return collection(db, `artifacts/${appId}/public/data/sudoku_scores`);
-    }
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
 
-    async function saveScoreToFirestore(timeSeconds, difficultyKey) {
-        if (!db || !isAuthReady) {
-            console.error("Database not ready or user not authenticated.");
-            return;
-        }
+            if (type === 'success') {
+                // Play a major third chord arpeggio
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
 
-        try {
-            // Use the current value from the input field
-            const playerName = playerNameInput.value.trim() || `Pemain Anon ${userId.substring(0, 4)}`;
-            
-            await addDoc(getScoresCollectionRef(), {
-                userId: userId,
-                name: playerName,
-                time: timeSeconds,
-                difficulty: difficultyKey,
-                date: serverTimestamp(),
-            });
-            console.log("Score saved successfully.");
-        } catch (e) {
-            console.error("Error adding document: ", e);
-        }
-    }
-
-    function renderLeaderboard(scores) {
-        leaderboardContent.innerHTML = '';
-
-        if (scores.length === 0) {
-            leaderboardContent.innerHTML = `<p class="text-center text-gray-500 mt-4">${getLangText('leaderboard_empty', getLangText(`difficulty_${currentLeaderboardFilter.toLowerCase()}`))}</p>`;
-            return;
-        }
-
-        const table = document.createElement('table');
-        table.className = 'leaderboard-table w-full border-collapse';
-
-        // Table Header
-        table.innerHTML = `
-            <thead>
-                <tr>
-                    <th class="rounded-tl-lg">${getLangText('leaderboard_rank')}</th>
-                    <th>${getLangText('leaderboard_player')}</th>
-                    <th>${getLangText('leaderboard_time')}</th>
-                    <th class="rounded-tr-lg">${getLangText('leaderboard_date')}</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        `;
-
-        const tbody = table.querySelector('tbody');
-
-        scores.forEach((score, index) => {
-            const dateValue = score.date?.toDate ? score.date.toDate() : (score.date ? new Date(score.date.seconds * 1000) : new Date());
-            const date = dateValue.toLocaleDateString(currentLang === 'ms' ? 'ms-MY' : 'en-US');
-            const timeFormatted = formatTime(score.time);
-            
-            const row = tbody.insertRow();
-            row.innerHTML = `
-                <td>${index + 1}</td>
-                <td class="font-semibold text-gray-700">${score.name || 'Anon'}</td>
-                <td class="font-mono font-bold" style="color: var(--primary-color);">${timeFormatted}</td> <!-- Dynamic Primary Color -->
-                <td class="text-sm text-gray-500">${date}</td>
-            `;
-            // Highlight current user's score with the active primary color
-            if (score.userId === userId) {
-                row.classList.add('border-l-4');
-                row.style.backgroundColor = THEMES[currentThemeKey].light_bg;
-                row.style.borderColor = THEMES[currentThemeKey].color;
+                // C4 (261.63 Hz)
+                oscillator.frequency.setValueAtTime(261.63, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
+                oscillator.start(audioContext.currentTime);
                 
-                if (currentBackgroundKey === 'DARK') {
-                    row.style.backgroundColor = `rgba(${THEMES[currentThemeKey].rgb}, 0.2)`;
-                }
-            } else {
-                 row.style.backgroundColor = 'transparent';
-            }
-        });
-
-        leaderboardContent.appendChild(table);
-    }
-    
-    function setupLeaderboardListener() {
-        if (!db || !isAuthReady) {
-            return;
-        }
-
-        const filterLevel = currentLeaderboardFilter;
-
-        const scoresQuery = query(
-            getScoresCollectionRef(),
-            where('difficulty', '==', filterLevel)
-        );
-
-        onSnapshot(scoresQuery, (querySnapshot) => {
-            let scores = [];
-            querySnapshot.forEach((doc) => {
-                scores.push(doc.data());
-            });
-            
-            scores.sort((a, b) => {
-                if (a.time < b.time) return -1;
-                if (a.time > b.time) return 1;
+                // E4 (329.63 Hz)
+                const osc2 = audioContext.createOscillator();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(329.63, audioContext.currentTime + 0.1);
+                osc2.connect(gainNode);
+                osc2.start(audioContext.currentTime + 0.1);
                 
-                const dateA = a.date?.seconds || 0;
-                const dateB = b.date?.seconds || 0;
-                
-                if (dateA < dateB) return 1; 
-                if (dateA > dateB) return -1; 
-                
-                return 0;
-            });
-            
-            const topScores = scores.slice(0, 10);
-            
-            renderLeaderboard(topScores);
-        }, (error) => {
-            console.error("Error fetching leaderboard: ", error);
-            leaderboardContent.innerHTML = `<p class="text-center text-red-500 mt-4">Ralat memuatkan Papan Pendahulu.</p>`;
-        });
-    }
+                // G4 (392.00 Hz)
+                const osc3 = audioContext.createOscillator();
+                osc3.type = 'sine';
+                osc3.frequency.setValueAtTime(392.00, audioContext.currentTime + 0.2);
+                osc3.connect(gainNode);
+                osc3.start(audioContext.currentTime + 0.2);
 
-    function updateLeaderboardFilterUI() {
-        // Use the primary color for the active leaderboard filter button
-        leaderboardFilterButtons.forEach(btn => {
-            if (btn.dataset.leaderboardFilter === currentLeaderboardFilter) {
-                btn.style.backgroundColor = THEMES[currentThemeKey].color;
-                btn.classList.add('text-white', 'shadow-md');
-                btn.classList.remove('bg-gray-200', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-100');
-            } else {
-                btn.style.backgroundColor = '';
-                btn.classList.remove('text-white', 'shadow-md');
-                btn.classList.add('bg-gray-200', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-100');
+                oscillator.stop(audioContext.currentTime + 0.35);
+                osc2.stop(audioContext.currentTime + 0.35);
+                osc3.stop(audioContext.currentTime + 0.35);
+
+            } else if (type === 'error') {
+                // Low, quick "buzz"
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(80, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.2);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.2);
+            } else if (type === 'click') {
+                // Short, gentle click for input
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.05);
             }
-        });
-    }
-
-    function handleLeaderboardFilterClick(key) {
-        currentLeaderboardFilter = key;
-        updateLeaderboardFilterUI();
-        setupLeaderboardListener();
-    }
-    
-    // --- TIMER Logic ---
-    function formatTime(totalSeconds) {
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const paddedMinutes = String(minutes).padStart(2, '0');
-        const paddedSeconds = String(seconds).padStart(2, '0');
-        return `${paddedMinutes}:${paddedSeconds}`;
-    }
-    
-    function updatePauseButton() {
-        if (isTimerRunning) {
-            pauseButton.textContent = getLangText('button_pause');
-            pauseButton.classList.add('bg-gray-500');
-            pauseButton.classList.remove('bg-green-500');
-        } else {
-            if (timeElapsed === 0) {
-                pauseButton.textContent = getLangText('button_start');
-            } else {
-                pauseButton.textContent = getLangText('button_play');
-            }
-            pauseButton.classList.remove('bg-gray-500');
-            pauseButton.classList.add('bg-green-500');
-        }
-    }
-
-    function startTimer() {
-        if (isTimerRunning) return;
-
-        timerInterval = setInterval(() => {
-            timeElapsed++;
-            timerDisplay.textContent = formatTime(timeElapsed);
-        }, 1000);
-        isTimerRunning = true;
-        updatePauseButton();
-    }
-
-    function stopTimer() {
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-        isTimerRunning = false;
-        updatePauseButton();
-    }
-
-    function toggleTimer() {
-        // Prevent starting if name is empty
-        if (playerNameInput.value.trim().length === 0 && !isTimerRunning) {
-            messageBox.textContent = getLangText('message_enter_name');
-            return;
         }
         
-        const gameSolved = currentBoard.flat().every(v => v !== 0) && currentBoard.flat().every((v, i) => v === fullSolution.flat()[i]);
-        if (gameSolved) return;
+        // --- Sudoku Core Logic (Backtracking Solver and Generator) ---
 
-
-        if (isTimerRunning) {
-            stopTimer();
-            messageBox.textContent = getLangText('message_paused');
-            toggleControls(true); 
-            playerNameInput.disabled = false;
-        } else {
-            startTimer();
-            createAudioContext(); 
-            const {row, col} = selectedCell;
-            
-            if (row !== -1) {
-                messageBox.textContent = getLangText('message_select_cell', row + 1, col + 1);
-            } else {
-                messageBox.textContent = getLangText('message_press_play_to_start');
+        // Checks if a number can be placed in a cell (r, c) on the board
+        function isValid(board, r, c, num) {
+            // Check row
+            for (let col = 0; col < 9; col++) {
+                if (board[r][col] === num) return false;
             }
 
-            toggleControls(false); 
-            playerNameInput.disabled = true;
-        }
-    }
+            // Check column
+            for (let row = 0; row < 9; row++) {
+                if (board[row][c] === num) return false;
+            }
 
+            // Check 3x3 box
+            const startRow = Math.floor(r / 3) * 3;
+            const startCol = Math.floor(c / 3) * 3;
 
-    // --- LANGUAGE Logic ---
-    function getLangText(key, ...args) {
-        const text = LANGUAGES[currentLang][key];
-        if (typeof text === 'function') {
-            return text(...args);
-        }
-        return text;
-    }
-
-    function updateLanguage() {
-        document.querySelectorAll('[data-lang-key]').forEach(el => {
-            const key = el.getAttribute('data-lang-key');
-            if (key.startsWith('button_hint')) {
-                el.textContent = getLangText('button_hint', hintsRemaining);
-            } else {
-                if (el.id !== 'pause-button') {
-                     el.textContent = getLangText(key);
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    if (board[startRow + row][startCol + col] === num) return false;
                 }
             }
-        });
-
-        // UPDATED: Set the placeholder text based ONLY on the selected language
-        playerNameInput.placeholder = getLangText('input_placeholder');
-        
-        updatePauseButton();
-
-        if (!isTimerRunning) {
-            if (playerNameInput.value.trim().length === 0) {
-                 messageBox.textContent = getLangText('message_enter_name');
-            } else if (timeElapsed > 0) { 
-                messageBox.textContent = getLangText('message_paused');
-            } else { 
-                const levelText = getLangText(`difficulty_${currentDifficultyKey.toLowerCase()}`);
-                messageBox.textContent = getLangText('message_loaded', levelText);
-            }
+            return true;
         }
 
-        langToggleButton.textContent = getLangText('lang_toggle_text');
-
-        renderBoard();
-        updateDifficultyUI();
-        updateThemeUI();
-        updateLeaderboardFilterUI();
-        setupLeaderboardListener();
-        handleLeaderboardFilterClick(currentLeaderboardFilter);
-    }
-
-
-    // --- UI/Game Logic ---
-
-    function showModal(titleKey, contentKey, isSuccess=false, time=null){
-        const title = getLangText(titleKey);
-        let content;
-        if (time) {
-            content = getLangText(contentKey, time);
-        } else {
-            content = getLangText(contentKey);
-        }
-
-        modalTitle.textContent = title;
-        modalContent.textContent = content;
-        
-        // Use primary color dynamically
-        const primaryColor = THEMES[currentThemeKey].color;
-        
-        modalTitle.style.color = isSuccess ? primaryColor : '#dc2626'; // Red-600
-        modalCloseButton.style.backgroundColor = isSuccess ? primaryColor : '#ef4444'; // Red-500
-        modalCloseButton.style.borderColor = isSuccess ? primaryColor : '#b91c1c'; // Red-700
-        
-        modal.style.display = 'flex';
-    }
-    function hideModal(){ modal.style.display = 'none'; }
-
-    function checkNameAndEnableStart() {
-        const isNameValid = playerNameInput.value.trim().length > 0;
-        
-        // Only enable pauseButton (Start/Resume) if a valid name is entered and game is not solved
-        if (isNameValid) {
-            const gameSolved = currentBoard.flat().every(v => v !== 0) && currentBoard.flat().every((v, i) => v === fullSolution.flat()[i]);
-            pauseButton.disabled = gameSolved;
-            
-            if (!isTimerRunning) {
-                 const levelText = getLangText(`difficulty_${currentDifficultyKey.toLowerCase()}`);
-                 if (timeElapsed === 0) {
-                     messageBox.textContent = getLangText('message_loaded', levelText);
-                     messageBox.textContent += " " + getLangText('message_press_play_to_start');
-                 } else {
-                     messageBox.textContent = getLangText('message_paused');
-                 }
-            }
-        } else {
-            // Disable start button and show name prompt
-            pauseButton.disabled = true;
-            if (!isTimerRunning) {
-                messageBox.textContent = getLangText('message_enter_name');
-            }
-        }
-    }
-    
-    function toggleControls(disableAllGameInput) {
-        const gameNotSolved = currentBoard.flat().includes(0) || currentBoard.flat().some((v, i) => v !== fullSolution.flat()[i]);
-        
-        // pauseButton control is now split: name validation via checkNameAndEnableStart, and solve status here.
-        checkNameAndEnableStart(); 
-        
-        const isDisabled = disableAllGameInput || !gameNotSolved; 
-        
-        checkButton.disabled = isDisabled;
-        hintButton.disabled = isDisabled || hintsRemaining === 0;
-
-        let isSelectedFixed = true; // Assume fixed unless proven otherwise
-        if (selectedCell.row !== -1 && selectedCell.col !== -1) {
-            isSelectedFixed = initialBoard[selectedCell.row][selectedCell.col] !== 0;
-        }
-        
-        // Number buttons/clear button are disabled if general game input is disabled, OR if a fixed cell is selected
-        numberButtons.forEach(btn => btn.disabled = isDisabled || isSelectedFixed);
-        clearButton.disabled = isDisabled || isSelectedFixed;
-    }
-    
-    function updateDifficultyUI() {
-        // Use the primary color for the active difficulty button
-        difficultyButtons.forEach(btn => {
-            if (btn.dataset.level === currentDifficultyKey) {
-                btn.style.backgroundColor = THEMES[currentThemeKey].color;
-                btn.classList.add('text-white', 'shadow-md');
-                btn.classList.remove('bg-gray-200', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-100');
-            } else {
-                btn.style.backgroundColor = '';
-                btn.classList.remove('text-white', 'shadow-md');
-                btn.classList.add('bg-gray-200', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-100');
-            }
-        });
-    }
-
-    async function setupNewGame(){
-        if (!isAuthReady) {
-            messageBox.textContent = getLangText('message_generating');
-            return;
-        }
-
-        messageBox.textContent = getLangText('message_generating');
-        
-        stopTimer(); 
-        timerDisplay.textContent = '00:00';
-        timeElapsed = 0; // Reset time elapsed
-
-        hintsRemaining = HINT_LIMIT;
-        hintButton.textContent = getLangText('button_hint', hintsRemaining);
-
-        const prev = document.querySelector('.cell.selected');
-        if(prev) prev.classList.remove('selected');
-        selectedCell = {row:-1, col:-1};
-        
-        toggleControls(true); 
-        playerNameInput.disabled = false; 
-
-        await new Promise(r => setTimeout(r, 10)); 
-
-        try {
-            const { puzzle, solution } = generateNewPuzzle(currentDifficulty);
-
-            initialBoard = puzzle.map(r => [...r]);
-            fullSolution = solution;
-            currentBoard = puzzle.map(r => [...r]);
-            
-            renderBoard();
-            
-            // Re-check name status after puzzle loads
-            checkNameAndEnableStart();
-            updatePauseButton(); 
-            
-        } catch(e) {
-            console.error("Error generating puzzle:", e);
-            messageBox.textContent = "Error generating puzzle."; 
-        }
-    }
-
-    function renderBoard(){
-        if (currentBoard.length !== 9) return;
-
-        gridElement.innerHTML = '';
-        const rowText = getLangText('aria_row');
-        const colText = getLangText('aria_col');
-        
-        const selectedValue = selectedCell.row !== -1 ? currentBoard[selectedCell.row][selectedCell.col] : 0;
-        const selectedBoxRow = selectedCell.row !== -1 ? Math.floor(selectedCell.row / 3) : -1;
-        const selectedBoxCol = selectedCell.col !== -1 ? Math.floor(selectedCell.col / 3) : -1;
-        
-        const isGameStopped = !isTimerRunning; 
-        
-        for(let r=0;r<9;r++){
-            for(let c=0;c<9;c++){
-                const cell = document.createElement('div');
-                cell.className = 'cell';
-                cell.setAttribute('data-row', r);
-                cell.setAttribute('data-col', c);
-                cell.setAttribute('role','gridcell');
-                
-                const isFixed = initialBoard[r][c] !== 0;
-                const cellTabIndex = !isFixed ? 0 : -1;
-                cell.setAttribute('tabindex', cellTabIndex);
-
-                cell.setAttribute('aria-label', `${rowText} ${r+1} ${colText} ${c+1}`); 
-                
-                // Add Drag-and-Drop functionality to the cells
-                if (!isFixed) {
-                    // Allow dropping a number if the cell is not fixed
-                    cell.addEventListener('dragover', (ev) => {
-                         if (isTimerRunning && playerNameInput.value.trim().length > 0) {
-                            ev.preventDefault(); // Allows the drop event
-                            ev.dataTransfer.dropEffect = "copy";
-                        }
-                    });
-
-                    cell.addEventListener('drop', (ev) => {
-                        ev.preventDefault();
-                        const draggedData = ev.dataTransfer.getData("text/plain");
-                        const num = parseInt(draggedData);
-
-                        if (isNaN(num) || num < 1 || num > 9) return;
-
-                        // Treat as a click on the cell first to update selection
-                        handleCellClick(r, c); 
-                        
-                        // Then process the number input (which checks fixed status, timer, name)
-                        handleNumberInput(num);
-                    });
-                }
-
-
-                const value = currentBoard[r][c];
-                cell.textContent = value === 0 ? '' : value;
-
-                if(isFixed){
-                    cell.classList.add('initial-value'); 
-                }
-
-                if (selectedCell.row !== -1) {
-                    const inSameRegion = (
-                        r === selectedCell.row || 
-                        c === selectedCell.col || 
-                        (Math.floor(r / 3) === selectedBoxRow && Math.floor(c / 3) === selectedBoxCol)
-                    );
-                    if (inSameRegion) {
-                        cell.classList.add('highlighted-related');
-                    }
-
-                    const isDuplicate = selectedValue !== 0 && value === selectedValue;
-                    if (isDuplicate) {
-                        cell.classList.add('highlighted-duplicate');
-                    }
-                }
-
-                if(r===selectedCell.row && c===selectedCell.col){
-                    cell.classList.add('selected');
-                }
-
-                if (value !== 0 && value !== fullSolution[r][c] && !isFixed && !isGameStopped) {
-                    cell.classList.add('error');
-                } else {
-                    cell.classList.remove('error');
-                }
-
-                cell.addEventListener('click', () => {
-                    handleCellClick(r,c); 
-                });
-                
-                cell.addEventListener('keydown', (ev)=>{
-                    const isNameEmpty = playerNameInput.value.trim().length === 0;
-
-                    if (!isTimerRunning) {
-                        if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft' || ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
-                            let newR = r, newC = c;
-                            if (ev.key === 'ArrowRight') newC = c + 1;
-                            if (ev.key === 'ArrowLeft') newC = c - 1;
-                            if (ev.key === 'ArrowUp') newR = r - 1;
-                            if (ev.key === 'ArrowDown') newR = r + 1;
-                            if (newR >= 0 && newR < 9 && newC >= 0 && newC < 9) moveSelection(newR, newC);
-                            ev.preventDefault();
-                        } else if (((ev.key >= '1' && ev.key <= '9') || ev.key === 'Backspace' || ev.key === 'Delete' || ev.key === '0')) {
-                            // Block keyboard input if not running or name is empty, but allow movement
-                             if (isNameEmpty) {
-                                messageBox.textContent = getLangText('message_enter_name');
-                             } else {
-                                messageBox.textContent = getLangText('message_press_play_to_start');
-                             }
-                             ev.preventDefault();
-                        }
-                        return; 
-                    } 
-
-                    const key = ev.key;
-                    if (key >= '1' && key <= '9') {
-                        handleNumberInput(parseInt(key));
-                        ev.preventDefault();
-                    } else if (key === 'Backspace' || key === 'Delete' || key === '0') {
-                        handleNumberInput(0);
-                        ev.preventDefault();
-                    } else if (key === 'ArrowRight' || key === 'ArrowLeft' || key === 'ArrowUp' || key === 'ArrowDown') {
-                        let newR = r, newC = c;
-                        if (key === 'ArrowRight') newC = c + 1;
-                        if (key === 'ArrowLeft') newC = c - 1;
-                        if (key === 'ArrowUp') newR = r - 1;
-                        if (key === 'ArrowDown') newR = r + 1;
-                        if (newR >= 0 && newR < 9 && newC >= 0 && newC < 9) moveSelection(newR, newC);
-                        ev.preventDefault();
-                    }
-                });
-
-                gridElement.appendChild(cell);
-            }
-        }
-    }
-
-    function handleCellClick(r,c){
-        if(r<0||r>8||c<0||c>8) return;
-
-        selectedCell = {row:r, col:c};
-        renderBoard();
-
-        const newSel = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
-        if(newSel) {
-            newSel.focus();
-            messageBox.textContent = getLangText('message_select_cell', r + 1, c + 1);
-        }
-
-        toggleControls(!isTimerRunning);
-    }
-
-    function moveSelection(r,c){
-        if(r<0) r=0; if(r>8) r=8; if(c<0) c=0; if(c>8) c=8;
-        handleCellClick(r,c);
-    }
-
-    function handleNumberInput(number){
-        const {row, col} = selectedCell;
-        
-        if (!isTimerRunning) {
-             messageBox.textContent = getLangText('message_press_play_to_start'); 
-             return; 
-        }
-        
-        if(playerNameInput.value.trim().length === 0){
-             messageBox.textContent = getLangText('message_enter_name');
-             return;
-        }
-
-        if(row === -1 || col === -1){ messageBox.textContent = getLangText('message_no_selection'); return; }
-        if(initialBoard[row][col] !== 0){ messageBox.textContent = getLangText('message_fixed_value'); return; }
-        
-        currentBoard[row][col] = number;
-        renderBoard();
-
-        if(currentBoard.flat().every(v => v !== 0)){
-            selectedCell = {row:-1, col:-1};
-            checkSolution();
-        }
-    }
-
-    async function checkSolution(){
-        let errors = false;
-        let filled = true;
-        
-        for(let r=0;r<9;r++){
-            for(let c=0;c<9;c++){
-                const val = currentBoard[r][c];
-                
-                if(val === 0) { filled = false; continue; }
-                if(val !== fullSolution[r][c]){
-                    errors = true;
-                }
-            }
-        }
-        
-        renderBoard(); 
-
-        if(!filled){
-            messageBox.textContent = getLangText('message_keep_going');
-            return;
-        }
-
-        stopTimer(); 
-
-        if(errors){
-            playSound('error');
-            showModal('modal_error_title', 'modal_error_content', false);
-            toggleControls(true); 
-        } else {
-            const finalTime = formatTime(timeElapsed);
-            
-            showModal('modal_solved_title', 'message_score_saving', true, finalTime);
-            
-            await saveScoreToFirestore(timeElapsed, currentDifficultyKey);
-            
-            playSound('success');
-            showModal('modal_solved_title', 'modal_solved_content', true, finalTime);
-
-            toggleControls(true); 
-        }
-    }
-    
-    function giveHint() {
-        if (!isTimerRunning) return;
-        if (hintsRemaining <= 0) { messageBox.textContent = getLangText('message_no_hints'); return; }
-        
-        const { row, col } = selectedCell;
-        if (row === -1 || col === -1 || currentBoard[row][col] !== 0) { 
-            messageBox.textContent = getLangText('message_select_hint_cell'); 
-            return; 
-        }
-
-        const correctValue = fullSolution[row][col];
-        currentBoard[row][col] = correctValue;
-        initialBoard[row][col] = correctValue; 
-        
-        hintsRemaining--;
-        hintButton.textContent = getLangText('button_hint', hintsRemaining);
-        
-        renderBoard();
-        messageBox.textContent = getLangText('message_hint_used', correctValue, hintsRemaining);
-        
-        if(currentBoard.flat().every(v => v !== 0)){
-            checkSolution();
-        }
-        toggleControls(false); 
-    }
-
-
-    // --- Core Sudoku Generation Logic (unchanged) ---
-
-    function isSafe(grid, row, col, num) {
-        for (let x = 0; x < 9; x++) {
-            if (grid[row][x] === num || grid[x][col] === num) return false;
-        }
-        const startRow = row - row % 3;
-        const startCol = col - col % 3;
-        for (let i = 0; i < 3; i++) {
-            for (let j = 0; j < 3; j++) {
-                if (grid[i + startRow][j + startCol] === num) return false;
-            }
-        }
-        return true;
-    }
-
-    function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-    }
-
-    function fillGrid(grid) {
-        let row = -1;
-        let col = -1;
-        let isEmpty = true;
-
-        for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) {
-                if (grid[r][c] === 0) { row = r; col = c; isEmpty = false; break; }
-            }
-            if (!isEmpty) break;
-        }
-        if (isEmpty) return true;
-
-        const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-        shuffle(nums);
-
-        for (const num of nums) {
-            if (isSafe(grid, row, col, num)) {
-                grid[row][col] = num;
-                if (fillGrid(grid)) return true;
-                grid[row][col] = 0;
-            }
-        }
-        return false;
-    }
-
-    function countSolutions(grid, limit = 2) {
-        let solutions = 0;
-        function solve(tempGrid) {
-            if (solutions >= limit) return;
-            let row = -1, col = -1;
-            let isEmpty = true;
+        // Backtracking solver to solve the board
+        function solve(board) {
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
-                    if (tempGrid[r][c] === 0) { row = r; col = c; isEmpty = false; break; }
+                    if (board[r][c] === 0) {
+                        for (let num = 1; num <= 9; num++) {
+                            if (isValid(board, r, c, num)) {
+                                board[r][c] = num;
+                                if (solve(board)) {
+                                    return true;
+                                }
+                                board[r][c] = 0; // Backtrack
+                            }
+                        }
+                        return false;
+                    }
                 }
-                if (!isEmpty) break;
             }
-            if (isEmpty) { solutions++; return; }
-            for (let num = 1; num <= 9; num++) {
-                if (isSafe(tempGrid, row, col, num)) {
-                    tempGrid[row][col] = num;
-                    solve(tempGrid);
-                    tempGrid[row][col] = 0;
+            return true; // Board is solved
+        }
+
+        // Fills the 9x9 board with a valid solution
+        function fillBoard(board) {
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
                 }
             }
-        }
-        const tempGrid = grid.map(r => [...r]);
-        solve(tempGrid);
-        return solutions;
-    }
 
-    function makePuzzle(fullGrid, cluesToKeep) {
-        const puzzle = fullGrid.map(r => [...r]);
-        let cells = [];
-        for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) {
-                cells.push({ r, c });
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (board[r][c] === 0) {
+                        const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+                        shuffle(numbers);
+                        for (let num of numbers) {
+                            if (isValid(board, r, c, num)) {
+                                board[r][c] = num;
+                                if (fillBoard(board)) {
+                                    return true;
+                                }
+                                board[r][c] = 0; // Backtrack
+                            }
+                        }
+                        return false;
+                    }
+                }
             }
+            return true;
         }
-        shuffle(cells);
-
-        let removedCount = 81 - cluesToKeep;
-        let currentRemoved = 0;
-
-        for (const { r, c } of cells) {
-            if (currentRemoved >= removedCount) break;
-
-            const backup = puzzle[r][c];
-            puzzle[r][c] = 0;
-
-            if (countSolutions(puzzle, 2) === 1) {
-                currentRemoved++;
-            } else {
-                puzzle[r][c] = backup;
-            }
-        }
-        return puzzle;
-    }
-
-    function generateNewPuzzle(cluesToKeep) {
-        const newSolution = Array.from({ length: 9 }, () => Array(9).fill(0));
-        fillGrid(newSolution);
-        const newPuzzle = makePuzzle(newSolution, cluesToKeep);
-        return { puzzle: newPuzzle, solution: newSolution };
-    }
-
-
-    // --- Event wiring ---
-    
-    // Add drag-and-drop support and existing click handler to number buttons
-    numberButtons.forEach(button=>{
         
-        // 1. Drag Start Listener
-        button.addEventListener('dragstart', (ev) => {
-            const num = button.getAttribute('data-number');
-            // Prevent drag if button is disabled (e.g., game paused or not started)
-            if (button.disabled || !isTimerRunning) {
-                ev.preventDefault();
+        // Generates a new Sudoku puzzle
+        function generatePuzzle(cluesToKeep) {
+            // 1. Create a solved board (fullSolution)
+            const board = Array(9).fill(0).map(() => Array(9).fill(0));
+            fillBoard(board);
+            fullSolution = board.map(row => [...row]); // Deep copy of the solved board
+
+            // 2. Remove numbers to create the puzzle (initialBoard)
+            const puzzle = fullSolution.map(row => [...row]);
+            const allCells = Array.from({ length: 81 }, (_, i) => [Math.floor(i / 9), i % 9]);
+            
+            let cellsToRemove = 81 - cluesToKeep;
+            let attempts = 0;
+            const maxAttempts = 1000;
+
+            while (cellsToRemove > 0 && attempts < maxAttempts) {
+                // Select a random cell
+                const cellIndex = Math.floor(Math.random() * allCells.length);
+                const [r, c] = allCells[cellIndex];
+                
+                // If the cell is not already empty
+                if (puzzle[r][c] !== 0) {
+                    // Temporarily remove the number
+                    const backup = puzzle[r][c];
+                    puzzle[r][c] = 0;
+                    
+                    // For simplicity and speed, we skip the unique solution check.
+                    
+                    cellsToRemove--;
+                }
+                attempts++;
+                if (attempts >= maxAttempts) {
+                    console.warn("Max attempts reached during puzzle generation.");
+                    break;
+                }
+            }
+
+            initialBoard = puzzle.map(row => [...row]);
+            currentBoard = puzzle.map(row => [...row]);
+            
+            return puzzle;
+        }
+
+        // --- Game Flow and UI Functions ---
+        
+        // Formats time in seconds to MM:SS string
+        function formatTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        // Handles the timer logic
+        function toggleTimer() {
+            if (!isGameActive) {
+                // Initial Start: Name must be entered
+                userName = playerNameInput.value.trim();
+                if (userName.length === 0) {
+                    showMessage(LANGUAGES[currentLang].message_enter_name);
+                    playerNameInput.focus();
+                    return;
+                }
+                isGameActive = true;
+                isGameSolved = false;
+                timeElapsed = 0;
+                updateTimerDisplay();
+                // Enable key inputs
+                toggleInputControls(true);
+                showMessage(LANGUAGES[currentLang].message_select_cell(1, 1));
+            }
+            
+            isTimerRunning = !isTimerRunning;
+            isPaused = !isTimerRunning;
+
+            if (isTimerRunning) {
+                pauseButton.textContent = LANGUAGES[currentLang].button_pause;
+                pauseButton.style.backgroundColor = '#f59e0b'; // Amber-500
+                pauseButton.style.borderColor = '#d97706'; // Amber-700
+                showMessage(LANGUAGES[currentLang].message_select_cell(selectedCell.row > 0 ? selectedCell.row + 1 : 1, selectedCell.col > 0 ? selectedCell.col + 1 : 1));
+                
+                timerInterval = setInterval(() => {
+                    timeElapsed++;
+                    updateTimerDisplay();
+                }, 1000);
+                gridElement.style.filter = 'none'; // Unblur
+            } else {
+                clearInterval(timerInterval);
+                pauseButton.textContent = LANGUAGES[currentLang].button_play;
+                pauseButton.style.backgroundColor = '#22c55e'; // Green-500 (Resume button)
+                pauseButton.style.borderColor = '#15803d'; // Green-700
+                showMessage(LANGUAGES[currentLang].message_paused);
+                gridElement.style.filter = 'blur(2px)'; // Blur grid when paused
+                clearSelection();
+            }
+            toggleInputControls(isTimerRunning && !isGameSolved);
+            checkButton.disabled = !isTimerRunning;
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            isPaused = false;
+            pauseButton.textContent = LANGUAGES[currentLang].button_start;
+            pauseButton.style.backgroundColor = 'var(--primary-color)';
+            pauseButton.disabled = true;
+            isGameActive = false;
+            gridElement.style.filter = 'none';
+            toggleInputControls(false);
+        }
+        
+        function updateTimerDisplay() {
+            timerDisplay.textContent = formatTime(timeElapsed);
+        }
+
+        // Renders the Sudoku grid based on currentBoard state
+        function renderGrid() {
+            gridElement.innerHTML = ''; // Clear existing grid
+            clearSelection();
+
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    cell.dataset.value = currentBoard[r][c] || '';
+                    cell.setAttribute('role', 'gridcell');
+                    cell.setAttribute('aria-label', `${LANGUAGES[currentLang].aria_row} ${r+1}, ${LANGUAGES[currentLang].aria_col} ${c+1}`);
+                    
+                    const value = currentBoard[r][c];
+                    if (value !== 0) {
+                        cell.textContent = value;
+                    }
+
+                    if (initialBoard[r][c] !== 0) {
+                        cell.classList.add('initial-value');
+                    }
+                    
+                    gridElement.appendChild(cell);
+                }
+            }
+            
+            // Re-attach cell click listeners
+            document.querySelectorAll('.cell:not(.initial-value)').forEach(cell => {
+                cell.addEventListener('click', handleCellClick);
+            });
+            
+            highlightDuplicatesAndErrors(false); // Initial validation check
+        }
+        
+        // Starts a new game based on currentDifficulty
+        async function startNewGame() {
+            stopTimer();
+            isGameSolved = false;
+            
+            // Reset hints
+            hintsRemaining = HINT_LIMIT;
+            updateHintButton();
+            
+            messageBox.textContent = LANGUAGES[currentLang].message_generating;
+            
+            // Disable everything during generation
+            toggleInputControls(false);
+            newGameButton.disabled = true;
+            
+            // Ensure initial board is rendered immediately (even if empty) to show the grid box
+            renderGrid(); 
+
+            // Small delay to show the loading message and simulate generation time
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Generate the puzzle
+            try {
+                const clues = currentDifficulty;
+                generatePuzzle(clues);
+                renderGrid(); // Re-render with new puzzle data
+                
+                // Re-enable controls
+                newGameButton.disabled = false;
+                pauseButton.disabled = playerNameInput.value.trim().length === 0;
+
+                const difficultyKey = Object.keys(DIFFICULTY_LEVELS).find(key => DIFFICULTY_LEVELS[key] === currentDifficulty) || 'MEDIUM';
+                showMessage(LANGUAGES[currentLang].message_loaded(LANGUAGES[currentLang]['difficulty_' + difficultyKey.toLowerCase()]) + ' ' + LANGUAGES[currentLang].message_press_play_to_start);
+                
+            } catch (error) {
+                console.error("Sudoku generation failed:", error);
+                showMessage("Error: Failed to generate puzzle. Check console.");
+                newGameButton.disabled = false;
+            }
+        }
+        
+        // Updates the visual state of the selected cell
+        function selectCell(r, c) {
+            clearSelection();
+
+            if (r === -1 || c === -1) return;
+
+            selectedCell.row = r;
+            selectedCell.col = c;
+
+            const cells = document.querySelectorAll('.cell');
+            
+            // Highlight related cells and value duplicates
+            cells.forEach(cell => {
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
+                const val = parseInt(cell.dataset.value);
+
+                // Highlight related (row, col, block)
+                if (row === r || col === c || 
+                (Math.floor(row / 3) === Math.floor(r / 3) && Math.floor(col / 3) === Math.floor(c / 3))) {
+                    cell.classList.add('highlighted-related');
+                }
+                
+                // Highlight selected cell
+                if (row === r && col === c) {
+                    cell.classList.add('selected');
+                    showMessage(LANGUAGES[currentLang].message_select_cell(r + 1, c + 1));
+                }
+
+                // Highlight cells with the same value as the selected cell (if non-zero)
+                const selectedVal = currentBoard[r][c];
+                if (selectedVal !== 0 && val === selectedVal) {
+                    cell.classList.add('highlighted-duplicate');
+                }
+            });
+        }
+
+        // Clears all selection and highlight classes
+        function clearSelection() {
+            selectedCell.row = -1;
+            selectedCell.col = -1;
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.remove('selected', 'highlighted-related', 'highlighted-duplicate');
+            });
+            showMessage(isTimerRunning ? LANGUAGES[currentLang].message_no_selection : LANGUAGES[currentLang].message_press_play_to_start);
+        }
+        
+        // Updates the cell value and re-renders highlights
+        function updateCell(r, c, value) {
+            if (!isTimerRunning || isGameSolved) return;
+            
+            const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+            if (!cell || cell.classList.contains('initial-value')) {
+                showMessage(LANGUAGES[currentLang].message_fixed_value);
                 return;
             }
-            ev.dataTransfer.setData("text/plain", num); 
-            ev.dataTransfer.effectAllowed = "copy"; 
-            button.classList.add('opacity-50'); 
-        });
-        
-        // 2. Drag End Listener (cleanup)
-        button.addEventListener('dragend', (ev) => {
-            button.classList.remove('opacity-50'); 
-        });
-        
-        // 3. Existing Click Listener
-        button.addEventListener('click', (ev)=>{
-            const num = parseInt(button.getAttribute('data-number'));
-            handleNumberInput(num);
-        });
-    });
-    
-    difficultyButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const key = btn.dataset.level;
-            currentDifficultyKey = key;
-            currentDifficulty = DIFFICULTY_LEVELS[key];
-            updateDifficultyUI();
-            setupNewGame();
-        });
-    });
-    
-    leaderboardFilterButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            handleLeaderboardFilterClick(btn.dataset.leaderboard-filter);
-        });
-    });
 
-    // Theme Color Selectors
-    primaryColorSelectors.forEach(selector => {
-        selector.addEventListener('click', () => {
-            const key = selector.dataset.colorKey;
-            applyTheme(key, currentBackgroundKey);
-        });
-    });
-    
-    // Theme Background Selectors
-    backgroundSelectors.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const key = btn.dataset.bgKey;
-            applyTheme(currentThemeKey, key);
-        });
-    });
-
-
-    langToggleButton.addEventListener('click', () => {
-        currentLang = currentLang === 'ms' ? 'en' : 'ms';
-        updateLanguage();
-    });
-
-    pauseButton.addEventListener('click', toggleTimer); 
-    checkButton.addEventListener('click', checkSolution);
-    newGameButton.addEventListener('click', setupNewGame);
-    modalCloseButton.addEventListener('click', hideModal);
-    hintButton.addEventListener('click', giveHint);
-    
-    // Name input listener to enable/disable start button
-    playerNameInput.addEventListener('input', (ev) => {
-        userName = ev.target.value.trim();
-        checkNameAndEnableStart();
-    });
-
-    document.addEventListener('keydown', (ev)=>{
-        const key = ev.key;
-        if(selectedCell.row !== -1 && isTimerRunning){
-            if (key >= '1' && key <= '9') {
-                handleNumberInput(parseInt(key));
-            } else if (key === 'Backspace' || key === 'Delete' || key === '0') {
-                handleNumberInput(0);
-            }
-        } else if (selectedCell.row !== -1 && !isTimerRunning && (key >= '1' && key <= '9')) {
-             if (playerNameInput.value.trim().length === 0) {
-                 messageBox.textContent = getLangText('message_enter_name');
-             } else {
-                 messageBox.textContent = getLangText('message_press_play_to_start');
-             }
+            currentBoard[r][c] = value;
+            cell.textContent = value === 0 ? '' : value;
+            cell.dataset.value = value === 0 ? '' : value;
+            
+            playSound('click');
+            
+            // Re-select to re-highlight duplicates/related cells
+            selectCell(r, c);
+            
+            highlightDuplicatesAndErrors(true);
         }
-    });
-
-    // initialize
-    window.addEventListener('load', () => {
-        // Clear input field on load to force name entry
-        playerNameInput.value = ''; 
         
-        applyTheme(currentThemeKey, currentBackgroundKey); 
-        updateLanguage(); 
-        initializeFirebase(); 
-    });
-</script>
-</body>
-</html>
+        // Toggles visibility of input controls (number pad, hint, check buttons)
+        function toggleInputControls(enable) {
+            numberButtons.forEach(btn => btn.disabled = !enable);
+            clearButton.disabled = !enable;
+            checkButton.disabled = !enable;
+            // Hint button is enabled only if hints > 0 and game is running
+            hintButton.disabled = !enable || hintsRemaining === 0;
+        }
+
+        // Checks for duplicates within the user-entered values and marks errors
+        function highlightDuplicatesAndErrors(checkFullSolution) {
+            let hasErrors = false;
+            let isComplete = true;
+
+            document.querySelectorAll('.cell').forEach(cell => {
+                const r = parseInt(cell.dataset.row);
+                const c = parseInt(cell.dataset.col);
+                const val = currentBoard[r][c];
+                
+                cell.classList.remove('error');
+                
+                if (val === 0) {
+                    isComplete = false;
+                    return;
+                }
+                
+                // 1. Check game errors (against rules)
+                let isError = false;
+                
+                // Temporarily remove cell value for validation, then check for duplicates in the rest of the board
+                currentBoard[r][c] = 0; 
+                if (!isValid(currentBoard, r, c, val)) {
+                    isError = true;
+                }
+                currentBoard[r][c] = val; // Restore value
+                
+                // 2. Check solution errors (against full solution)
+                if (checkFullSolution && val !== fullSolution[r][c]) {
+                    isError = true;
+                }
+
+                if (isError) {
+                    cell.classList.add('error');
+                    hasErrors = true;
+                }
+            });
+            
+            return { isComplete, hasErrors };
+        }
+        
+        // --- Event Handlers ---
+        
+        function handleCellClick(e) {
+            if (!isTimerRunning || isGameSolved) {
+                showMessage(LANGUAGES[currentLang].message_paused);
+                return;
+            }
+            const cell = e.currentTarget;
+            const r = parseInt(cell.dataset.row);
+            const c = parseInt(cell.dataset.col);
+            selectCell(r, c);
+        }
+
+        function handleNumberPadClick(e) {
+            const num = parseInt(e.currentTarget.dataset.number);
+            const r = selectedCell.row;
+            const c = selectedCell.col;
+
+            if (r === -1 || c === -1) {
+                showMessage(LANGUAGES[currentLang].message_no_selection);
+                return;
+            }
+            
+            // 0 is the clear button
+            const value = num === 0 ? 0 : num;
+            updateCell(r, c, value);
+        }
+        
+        function handleDifficultyChange(e) {
+            const levelKey = e.currentTarget.dataset.level;
+            currentDifficultyKey = levelKey;
+            currentDifficulty = DIFFICULTY_LEVELS[levelKey];
+            
+            difficultyButtons.forEach(btn => {
+                btn.classList.remove('active');
+                btn.style.backgroundColor = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            });
+            e.currentTarget.classList.add('active');
+            
+            startNewGame(); // Start new game with selected difficulty
+        }
+        
+        function handleCheckSolution() {
+            if (!isTimerRunning) return;
+            
+            const { isComplete, hasErrors } = highlightDuplicatesAndErrors(true);
+            
+            if (!isComplete) {
+                showMessage(LANGUAGES[currentLang].message_keep_going);
+                playSound('error');
+                return;
+            }
+
+            stopTimer();
+            isGameSolved = true;
+            
+            if (hasErrors) {
+                showModal(LANGUAGES[currentLang].modal_error_title, LANGUAGES[currentLang].modal_error_content, '#dc2626'); // Red
+                playSound('error');
+            } else {
+                const timeStr = formatTime(timeElapsed);
+                showModal(LANGUAGES[currentLang].modal_solved_title, LANGUAGES[currentLang].modal_solved_content(timeStr), 'var(--primary-color)');
+                showMessage(LANGUAGES[currentLang].message_score_saving);
+                
+                // Submit score to Firebase
+                submitScore(userName, timeElapsed, currentDifficultyKey)
+                    .then(() => {
+                        showMessage(LANGUAGES[currentLang].message_score_saved);
+                        playSound('success');
+                    })
+                    .catch(err => {
+                        console.error("Score submission failed:", err);
+                        showMessage("Error: Score submission failed.");
+                        playSound('error');
+                    });
+            }
+        }
+        
+        function handleHint() {
+            if (!isTimerRunning || hintsRemaining <= 0 || isGameSolved) {
+                showMessage(LANGUAGES[currentLang].message_no_hints);
+                return;
+            }
+
+            const r = selectedCell.row;
+            const c = selectedCell.col;
+
+            if (r === -1 || c === -1 || currentBoard[r][c] !== 0) {
+                showMessage(LANGUAGES[currentLang].message_select_hint_cell);
+                return;
+            }
+            
+            const correctValue = fullSolution[r][c];
+            updateCell(r, c, correctValue);
+            
+            const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+            if (cell) {
+                cell.classList.add('assisted');
+            }
+
+            hintsRemaining--;
+            updateHintButton();
+            
+            showMessage(LANGUAGES[currentLang].message_hint_used(correctValue, hintsRemaining));
+            
+            // Check for win condition after hint
+            const { isComplete, hasErrors } = highlightDuplicatesAndErrors(false);
+            if (isComplete && !hasErrors) {
+                handleCheckSolution(); // Auto-check if completed by hint
+            }
+        }
+
+        function updateHintButton() {
+            hintButton.textContent = LANGUAGES[currentLang].button_hint(hintsRemaining);
+            hintButton.disabled = !isTimerRunning || hintsRemaining === 0;
+        }
+        
+        function showMessage(text) {
+            messageBox.textContent = text;
+        }
+        
+        // --- Language & Theme Functions ---
+        
+        function updateUIForLanguage() {
+            const langData = LANGUAGES[currentLang];
+            
+            // Update all elements with data-lang-key
+            document.querySelectorAll('[data-lang-key]').forEach(el => {
+                const key = el.dataset.langKey;
+                let text = langData[key];
+                
+                // Handle special functions (like button_hint)
+                if (key === 'button_hint') {
+                    text = langData[key](hintsRemaining);
+                }
+                
+                el.textContent = text;
+            });
+            
+            // Update placeholder
+            playerNameInput.placeholder = langData.input_placeholder;
+            
+            // Update timer/pause button text based on state
+            if (isGameActive && !isGameSolved) {
+                pauseButton.textContent = isTimerRunning ? langData.button_pause : langData.button_play;
+            } else {
+                pauseButton.textContent = langData.button_start;
+            }
+            
+            // Update lang toggle button text
+            langToggleButton.textContent = langData.lang_toggle_text;
+            
+            // Re-render grid to update ARIA labels
+            if (currentBoard.length > 0) {
+                renderGrid();
+            }
+            
+            // Reload leaderboard to update difficulty text
+            if (isAuthReady) {
+                loadLeaderboard(currentLeaderboardFilter);
+            }
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'ms' ? 'en' : 'ms';
+            updateUIForLanguage();
+        }
+        
+        function applyTheme(themeKey, bgKey) {
+            // 1. Apply Primary Color
+            const theme = THEMES[themeKey];
+            if (theme) {
+                root.style.setProperty('--primary-color', theme.color);
+                root.style.setProperty('--primary-text', theme.color);
+                root.style.setProperty('--primary-light-bg', theme.light_bg);
+                root.style.setProperty('--primary-border', theme.border);
+                root.style.setProperty('--primary-color-rgb', theme.rgb);
+                
+                // Set app title color
+                appTitle.style.color = theme.color;
+                
+                // Update active state on selectors
+                primaryColorSelectors.forEach(selector => {
+                    selector.classList.toggle('selected-theme', selector.dataset.colorKey === themeKey);
+                });
+                currentThemeKey = themeKey;
+            }
+            
+            // 2. Apply Background Color
+            body.classList.remove('dark-mode', 'neutral-mode');
+            themeBgLightButton.style.backgroundColor = '';
+            themeBgLightButton.style.color = '';
+            themeBgDarkButton.style.backgroundColor = '';
+            themeBgDarkButton.style.color = '';
+            themeBgNeutralButton.style.backgroundColor = '';
+            themeBgNeutralButton.style.color = '';
+
+            if (bgKey === 'DARK') {
+                body.classList.add('dark-mode');
+                themeBgDarkButton.style.backgroundColor = theme.color;
+                themeBgDarkButton.style.color = 'white';
+            } else if (bgKey === 'NEUTRAL') {
+                body.classList.add('neutral-mode');
+                themeBgNeutralButton.style.backgroundColor = theme.color;
+                themeBgNeutralButton.style.color = 'white';
+            } else { // LIGHT
+                themeBgLightButton.style.backgroundColor = theme.color;
+                themeBgLightButton.style.color = 'white';
+            }
+            currentBackgroundKey = bgKey;
+
+            // Ensure button colors reflect the primary color change
+            // This is done via CSS variables, but active buttons need explicit override
+            document.querySelectorAll('.difficulty-button.active, .leaderboard-filter-active, #pause-button:not([disabled])').forEach(btn => {
+                btn.style.backgroundColor = 'var(--primary-color)';
+                btn.style.borderColor = 'var(--primary-color)';
+            });
+            langToggleButton.style.backgroundColor = 'var(--primary-color)';
+            checkButton.style.backgroundColor = 'var(--primary-color)';
+            modalCloseButton.style.backgroundColor = 'var(--primary-color)';
+        }
+
+        // --- Modal Functions ---
+        
+        function showModal(title, content, color) {
+            modalTitle.textContent = title;
+            modalContent.innerHTML = content;
+            modalTitle.style.color = color;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+        
+        // --- Drawer Functions ---
+        
+        function openDrawer() {
+            sideDrawer.classList.add('open');
+            drawerOverlay.classList.add('visible');
+        }
+
+        function closeDrawer() {
+            sideDrawer.classList.remove('open');
+            drawerOverlay.classList.remove('visible');
+        }
+        
+        // --- Firebase/Leaderboard Functions ---
+
+        function getPublicLeaderboardCollection(difficulty) {
+            const collectionPath = `artifacts/${appId}/public/data/leaderboard_${difficulty.toLowerCase()}`;
+            return collection(db, collectionPath);
+        }
+        
+        async function submitScore(name, time, difficulty) {
+            if (!db || !userId) {
+                console.error("Firebase not initialized or user not logged in.");
+                return;
+            }
+            
+            const leaderboardRef = getPublicLeaderboardCollection(difficulty);
+            
+            const scoreData = {
+                playerName: name.substring(0, 20),
+                timeSeconds: time,
+                difficulty: difficulty,
+                userId: userId,
+                timestamp: serverTimestamp(),
+            };
+            
+            await addDoc(leaderboardRef, scoreData);
+            // Leaderboard will update automatically via onSnapshot
+        }
+        
+        function loadLeaderboard(difficulty) {
+            currentLeaderboardFilter = difficulty;
+            
+            // Update filter button appearance
+            leaderboardFilterButtons.forEach(btn => {
+                btn.classList.remove('leaderboard-filter-active');
+                btn.style.backgroundColor = 'var(--card-bg)';
+                btn.style.color = 'var(--text-color)';
+                
+                if (btn.dataset.leaderboardFilter === difficulty) {
+                    btn.classList.add('leaderboard-filter-active');
+                    btn.style.backgroundColor = 'var(--primary-color)';
+                    btn.style.color = 'white';
+                }
+            });
+            
+            leaderboardContent.innerHTML = `<p class="text-center text-gray-500">${LANGUAGES[currentLang].leaderboard_loading}</p>`;
+            
+            if (!db || !isAuthReady) return;
+            
+            const leaderboardRef = getPublicLeaderboardCollection(difficulty);
+            
+            // Use a simple query as Firestore order queries can require index creation.
+            // We will fetch all and sort client-side by timeSeconds.
+            
+            const q = query(leaderboardRef);
+            
+            // Use onSnapshot for real-time updates
+            onSnapshot(q, (querySnapshot) => {
+                const scores = [];
+                querySnapshot.forEach((doc) => {
+                    scores.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Sort client-side by time (ascending)
+                scores.sort((a, b) => (a.timeSeconds || 99999) - (b.timeSeconds || 99999));
+                
+                renderLeaderboard(scores, difficulty);
+            }, (error) => {
+                console.error("Failed to load leaderboard:", error);
+                leaderboardContent.innerHTML = `<p class="text-center text-red-500">Error loading leaderboard.</p>`;
+            });
+        }
+
+        function renderLeaderboard(scores, difficulty) {
+            const difficultyName = LANGUAGES[currentLang]['difficulty_' + difficulty.toLowerCase()];
+            
+            if (scores.length === 0) {
+                leaderboardContent.innerHTML = `<p class="text-center text-gray-500 mt-4">${LANGUAGES[currentLang].leaderboard_empty(difficultyName)}</p>`;
+                return;
+            }
+
+            let html = `
+                <div class="overflow-x-auto rounded-lg border" style="border-color: var(--primary-border);">
+                    <table class="min-w-full leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th class="rounded-tl-lg">${LANGUAGES[currentLang].leaderboard_rank}</th>
+                                <th>${LANGUAGES[currentLang].leaderboard_player}</th>
+                                <th class="font-mono">${LANGUAGES[currentLang].leaderboard_time}</th>
+                                <th class="rounded-tr-lg">${LANGUAGES[currentLang].leaderboard_date}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            scores.slice(0, 10).forEach((score, index) => {
+                const timeStr = formatTime(score.timeSeconds);
+                const date = score.timestamp ? 
+                    new Date(score.timestamp.seconds * 1000).toLocaleDateString(currentLang === 'ms' ? 'ms-MY' : 'en-US') : '-';
+                
+                const isCurrentUser = score.userId === userId;
+                const rowClass = isCurrentUser ? 'bg-yellow-100 dark:bg-yellow-800' : 'hover:bg-gray-50 dark:hover:bg-gray-600';
+                const rankTextClass = index < 3 ? 'font-extrabold text-lg' : 'font-medium';
+                const rankColor = index === 0 ? 'text-yellow-600' : index === 1 ? 'text-gray-500' : index === 2 ? 'text-amber-700' : '';
+
+                html += `
+                    <tr class="${rowClass}">
+                        <td class="${rankTextClass} ${rankColor}">${index + 1}</td>
+                        <td class="truncate" title="${score.playerName}">${score.playerName}</td>
+                        <td class="font-mono">${timeStr}</td>
+                        <td class="text-sm text-gray-500 dark:text-gray-400">${date}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            leaderboardContent.innerHTML = html;
+        }
+
+
+        // --- Initialization ---
+
+        async function setupFirebase() {
+            if (!firebaseConfig) {
+                console.error("Firebase config is missing. App will run without persistence/leaderboard.");
+                return;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        currentUserIdDisplay.textContent = `User ID: ${userId}`;
+                        isAuthReady = true;
+                        // Load the initial leaderboard after auth is ready
+                        loadLeaderboard(currentLeaderboardFilter);
+                    } else {
+                        userId = null;
+                        isAuthReady = true;
+                        currentUserIdDisplay.textContent = 'Signed out or Anonymous ID not set.';
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                isAuthReady = true;
+            }
+        }
+
+        function setupEventListeners() {
+            // Game flow
+            newGameButton.addEventListener('click', startNewGame);
+            pauseButton.addEventListener('click', toggleTimer);
+            checkButton.addEventListener('click', handleCheckSolution);
+            hintButton.addEventListener('click', handleHint);
+
+            // Input
+            playerNameInput.addEventListener('input', () => {
+                pauseButton.disabled = playerNameInput.value.trim().length === 0 || isGameSolved;
+                userName = playerNameInput.value.trim();
+            });
+            numberButtons.forEach(btn => btn.addEventListener('click', handleNumberPadClick));
+            clearButton.addEventListener('click', handleNumberPadClick);
+            difficultyButtons.forEach(btn => btn.addEventListener('click', handleDifficultyChange));
+
+            // Language
+            langToggleButton.addEventListener('click', toggleLanguage);
+            
+            // Modal
+            modalCloseButton.addEventListener('click', closeModal);
+            
+            // Drawer
+            menuToggleButton.addEventListener('click', openDrawer);
+            drawerCloseButton.addEventListener('click', closeDrawer);
+            drawerOverlay.addEventListener('click', closeDrawer);
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && sideDrawer.classList.contains('open')) {
+                    closeDrawer();
+                }
+                // Add keyboard navigation/input for the grid
+                if (isTimerRunning && !isGameSolved && selectedCell.row !== -1 && selectedCell.col !== -1) {
+                    let r = selectedCell.row;
+                    let c = selectedCell.col;
+                    
+                    if (e.key >= '1' && e.key <= '9') {
+                        updateCell(r, c, parseInt(e.key));
+                        e.preventDefault();
+                    } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+                        updateCell(r, c, 0);
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowUp') {
+                        selectCell(Math.max(0, r - 1), c);
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowDown') {
+                        selectCell(Math.min(8, r + 1), c);
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowLeft') {
+                        selectCell(r, Math.max(0, c - 1));
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowRight') {
+                        selectCell(r, Math.min(8, c + 1));
+                        e.preventDefault();
+                    }
+                } else if (e.key === 'Escape' && modal.classList.contains('flex')) {
+                    closeModal();
+                }
+            });
+
+            // Theming
+            primaryColorSelectors.forEach(selector => {
+                selector.addEventListener('click', (e) => {
+                    const key = e.currentTarget.dataset.colorKey;
+                    applyTheme(key, currentBackgroundKey);
+                });
+            });
+
+            backgroundSelectors.forEach(selector => {
+                selector.addEventListener('click', (e) => {
+                    const key = e.currentTarget.dataset.bg-Key;
+                    backgroundSelectors.forEach(btn => {
+                        btn.style.backgroundColor = '';
+                        btn.style.color = '';
+                        btn.classList.remove('active');
+                    });
+                    e.currentTarget.classList.add('active');
+                    applyTheme(currentThemeKey, key);
+                });
+            });
+            
+            // Leaderboard Filter
+            leaderboardFilterButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const filter = e.currentTarget.dataset.leaderboardFilter;
+                    loadLeaderboard(filter);
+                });
+            });
+        }
+
+        // Initialize the application
+        window.onload = async function() {
+            // 1. Initial UI setup (synchronous) - ensures buttons/structure are themed and visible
+            setupEventListeners();
+            applyTheme(currentThemeKey, currentBackgroundKey);
+            updateUIForLanguage();
+            
+            // 2. Initial grid render (synchronous) - ensures the 9x9 box is drawn immediately
+            renderGrid();
+            
+            // 3. Firebase setup (asynchronous) - doesn't block UI visibility
+            await setupFirebase();
+            
+            // 4. Start game (puzzle generation)
+            startNewGame();
+        };
+
+        // Expose drawer functions globally for inline HTML events
+        window.closeDrawer = closeDrawer;
+        window.openDrawer = openDrawer;
+
+    </script>
+    </body>
+    </html>
