@@ -1515,16 +1515,6 @@
 
         // --- Initialization ---
 
-        const firebaseConfig = {
-        apiKey: "AIzaSyBpsPIOltb2hAYcxSjaci_glTCTHckAnRU",
-        authDomain: "sudoku-leaderboard-bca8c.firebaseapp.com",
-        databaseURL: "https://sudoku-leaderboard-bca8c-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "sudoku-leaderboard-bca8c",
-        storageBucket: "sudoku-leaderboard-bca8c.firebasestorage.app",
-        messagingSenderId: "308930834809",
-        appId: "1:308930834809:web:4f8236f386aa3c84e33fa8",
-        measurementId: "G-KBW79FYPS6"
-        };
         async function setupFirebase() {
             if (!firebaseConfig) {
                 console.error("Firebase config is missing. App will run without persistence/leaderboard.");
